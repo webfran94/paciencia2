@@ -9,10 +9,12 @@ const firebaseConfig = {
   projectId: "manual-paciencia",
   storageBucket: "manual-paciencia.firebasestorage.app",
   messagingSenderId: "759536065466",
-  appId: "1:759536065466:web:f5210ec8614f0b5b421b83"
+  appId: "1:759536065466:web:f5210ec8614f0b5b421b83",
+  // measurementId: "" // Si usas Google Analytics para Firebase, descomenta y asigna el valor.
 };
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);;
+
 
