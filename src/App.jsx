@@ -1,15 +1,32 @@
 import React, { useState, useEffect } from 'react';
+// IMPORTANTE: Este archivo firebase.js debe estar en la misma carpeta src/
 import { auth, db } from './firebase'; 
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, updateDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
 import { 
   Home, BookOpen, Activity, MessageCircle, Users, Plus, Save, Trash2, 
   ChevronDown, Play, Pause, X, CheckCircle, AlertCircle, Wind, 
   Shield, Heart, Smile, Zap, Lock, Star, LogOut, Loader2
 } from 'lucide-react';
 
+// --- DATA ESTÁTICA ---
+const SCRIPTS_DATA = [
+  { id: 1, category: "Desobediencia", title: "Cuando te ignora", trigger: "No responde al llamado", dontSay: "¡¿Estás sordo?!", doSay: "(Contacto visual) Veo que estás jugando...", why: "Gritar activa defensa." },
+  { id: 2, category: "Berrinche", title: "Gritos en público", trigger: "Quiere un dulce", dontSay: "¡Qué vergüenza!", doSay: "Entiendo que estés enojado...", why: "Validar calma la emoción." }
+];
+
+const STORIES_DATA = [
+  { id: 1, title: "De Gritos a Paz", author: "Carlos M.", snippet: "Pensé que era mi carácter...", content: "El manual me enseñó a identificar la presión en el pecho..." }
+];
+
+const EMPATHY_CHECKLIST = [
+  { id: 1, text: "Me bajé a su altura visual." },
+  { id: 2, text: "Validé su emoción." },
+  { id: 3, text: "Escuché sin interrumpir." }
+];
+
 // --- PANTALLA DE LOGIN (SEGURIDAD ESTRICTA) ---
-const LoginScreen = () => {
+const LoginScreen = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -20,10 +37,13 @@ const LoginScreen = () => {
     setLoading(true);
     setError('');
     
+    // Normalizamos el email para evitar errores de mayúsculas/minúsculas
     const emailKey = email.toLowerCase().trim();
 
     try {
-      // 1. FILTRO DE SEGURIDAD: VERIFICAR COMPRA
+      // 1. FILTRO DE SEGURIDAD: VERIFICAR COMPRA EN BASE DE DATOS
+      // Consultamos la base de datos ANTES de intentar cualquier autenticación.
+      // Si Make no creó el documento, el usuario NO existe para nosotros.
       const userRef = doc(db, "users", emailKey);
       const userSnap = await getDoc(userRef);
 
@@ -31,10 +51,12 @@ const LoginScreen = () => {
         throw new Error("ACCESO DENEGADO: No encontramos una compra activa con este email. Verifica que sea el mismo que usaste en Hotmart.");
       }
 
-      // 2. SI EXISTE LA COMPRA, PROCEDEMOS
+      // 2. SI EXISTE LA COMPRA, PROCEDEMOS CON LA AUTENTICACIÓN
       try {
         await signInWithEmailAndPassword(auth, emailKey, password);
       } catch (authError) {
+        // Si el usuario existe en DB (compró) pero no en Auth (nunca ha entrado),
+        // significa que es su primer acceso. Permitimos crear la contraseña por primera vez.
         if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
              await createUserWithEmailAndPassword(auth, emailKey, password);
         } else if (authError.code === 'auth/wrong-password') {
@@ -69,7 +91,7 @@ const LoginScreen = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-            <input type="password" required placeholder="Ingresa tu contraseña" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input type="password" required placeholder="Crea o ingresa tu contraseña" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           
           {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-200 flex items-start gap-2"><AlertCircle size={16} className="mt-0.5 shrink-0"/> {error}</div>}
@@ -88,6 +110,7 @@ const LoginScreen = () => {
 
 // --- PANTALLA PRINCIPAL (DASHBOARD) ---
 const Dashboard = ({ changeView, userData }) => {
+  // Validación Estricta de Premium desde la base de datos
   const isPremium = userData?.isPremium === true; 
 
   return (
@@ -102,7 +125,7 @@ const Dashboard = ({ changeView, userData }) => {
         )}
       </header>
 
-      {/* Herramientas Básicas */}
+      {/* Herramientas Básicas (Siempre disponibles si compró) */}
       <div className="grid md:grid-cols-2 gap-4 mb-8">
         <button onClick={() => changeView('reflection')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-green-300 text-left transition hover:shadow-md group">
           <Activity className="text-green-600 mb-3 group-hover:scale-110 transition h-8 w-8"/>
@@ -126,7 +149,7 @@ const Dashboard = ({ changeView, userData }) => {
         </button>
       </div>
 
-      {/* Herramientas Premium */}
+      {/* Herramientas Premium (Bloqueadas si isPremium es false) */}
       <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Zap size={14} className="text-yellow-500"/> Pack Premium</h3>
       <div className="grid md:grid-cols-3 gap-4 mb-12">
         {isPremium ? (
@@ -151,9 +174,10 @@ const Dashboard = ({ changeView, userData }) => {
   );
 };
 
-// --- HERRAMIENTAS ---
+// --- HERRAMIENTAS (Con Persistencia Real) ---
 
 const ReflectionTool = ({ userEmail, userData }) => {
+  // Leemos el estado inicial de userData, si no existe array, empezamos vacío
   const [entries, setEntries] = useState(userData?.reflections || []);
   const [newEntry, setNewEntry] = useState({ trigger: '', intensity: 5, notes: '' });
 
@@ -161,10 +185,11 @@ const ReflectionTool = ({ userEmail, userData }) => {
     if (!newEntry.trigger) return;
     const entry = { ...newEntry, id: Date.now(), date: new Date().toLocaleDateString() };
     
-    const updatedEntries = [entry, ...entries];
-    setEntries(updatedEntries);
+    // Actualización optimista
+    setEntries([entry, ...entries]);
 
     try {
+      // Guardamos DIRECTAMENTE en el documento del usuario (identificado por email)
       const userRef = doc(db, "users", userEmail); 
       await updateDoc(userRef, { 
         reflections: arrayUnion(entry) 
@@ -210,7 +235,7 @@ const ReflectionTool = ({ userEmail, userData }) => {
   );
 };
 
-// ... (Resto de herramientas placeholders)
+// ... Resto de herramientas estáticas (StressTool, CommunicationTool, etc.)
 
 const StressTool = () => {
     const [active, setActive] = useState(false);
@@ -234,7 +259,7 @@ const EmpathyTool = () => (<div className="max-w-2xl mx-auto text-center py-10">
 const SelfCareTool = () => (<div className="max-w-2xl mx-auto text-center py-10"><Smile className="mx-auto h-12 w-12 text-yellow-500 mb-4"/><h2 className="text-2xl font-bold">Autocuidado</h2></div>);
 const ConfidenceTool = () => (<div className="max-w-2xl mx-auto text-center py-10"><Star className="mx-auto h-12 w-12 text-orange-500 mb-4"/><h2 className="text-2xl font-bold">Confianza</h2></div>);
 
-// --- APP PRINCIPAL ---
+// --- APP PRINCIPAL (CONTENEDOR) ---
 const App = () => {
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
@@ -253,7 +278,7 @@ const App = () => {
             if (docSnap.exists()) {
                 setUserData(docSnap.data());
             } else {
-                // SEGURIDAD ADICIONAL: Si no hay documento, cerrar sesión forzada
+                // SEGURIDAD ADICIONAL: Si no hay documento (se borró), cerrar sesión forzada
                 setUserData(null);
                 signOut(auth);
             }
@@ -266,7 +291,7 @@ const App = () => {
         setLoading(false);
       }
     });
-    return () => unsubscribe();
+    return () => unsubscribe(); // Limpiar listener de auth
   }, []);
 
   const handleLogout = () => {
@@ -285,7 +310,7 @@ const App = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 flex-col p-4 text-center">
           <AlertCircle size={48} className="text-red-500 mb-4"/>
           <h2 className="text-xl font-bold text-gray-800">Acceso Denegado</h2>
-          <p className="text-gray-600 mb-6">No encontramos una compra activa.</p>
+          <p className="text-gray-600 mb-6">No encontramos una compra activa para <strong>{user.email}</strong>.</p>
           <button onClick={handleLogout} className="text-blue-600 hover:underline">Cerrar Sesión</button>
       </div>
   );
