@@ -1,32 +1,15 @@
 import React, { useState, useEffect } from 'react';
-// IMPORTANTE: Este archivo firebase.js debe estar en la misma carpeta src/
 import { auth, db } from './firebase'; 
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
 import { 
   Home, BookOpen, Activity, MessageCircle, Users, Plus, Save, Trash2, 
   ChevronDown, Play, Pause, X, CheckCircle, AlertCircle, Wind, 
   Shield, Heart, Smile, Zap, Lock, Star, LogOut, Loader2
 } from 'lucide-react';
 
-// --- DATA ESTÁTICA ---
-const SCRIPTS_DATA = [
-  { id: 1, category: "Desobediencia", title: "Cuando te ignora", trigger: "No responde al llamado", dontSay: "¡¿Estás sordo?!", doSay: "(Contacto visual) Veo que estás jugando...", why: "Gritar activa defensa." },
-  { id: 2, category: "Berrinche", title: "Gritos en público", trigger: "Quiere un dulce", dontSay: "¡Qué vergüenza!", doSay: "Entiendo que estés enojado...", why: "Validar calma la emoción." }
-];
-
-const STORIES_DATA = [
-  { id: 1, title: "De Gritos a Paz", author: "Carlos M.", snippet: "Pensé que era mi carácter...", content: "El manual me enseñó a identificar la presión en el pecho..." }
-];
-
-const EMPATHY_CHECKLIST = [
-  { id: 1, text: "Me bajé a su altura visual." },
-  { id: 2, text: "Validé su emoción." },
-  { id: 3, text: "Escuché sin interrumpir." }
-];
-
 // --- PANTALLA DE LOGIN (SEGURIDAD ESTRICTA) ---
-const LoginScreen = ({ onLogin }) => {
+const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -37,26 +20,21 @@ const LoginScreen = ({ onLogin }) => {
     setLoading(true);
     setError('');
     
-    // Normalizamos el email para evitar errores de mayúsculas/minúsculas
     const emailKey = email.toLowerCase().trim();
 
     try {
-      // 1. FILTRO DE SEGURIDAD: VERIFICAR COMPRA EN BASE DE DATOS
-      // Consultamos la base de datos ANTES de intentar cualquier autenticación.
-      // Si Make no creó el documento, el usuario NO existe para nosotros.
+      // 1. FILTRO DE SEGURIDAD: VERIFICAR COMPRA
       const userRef = doc(db, "users", emailKey);
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        throw new Error("ACCESO DENEGADO: No encontramos una compra activa con este email. Verifica que sea el mismo que usaste en Hotmart.");
+        throw new Error("ACCESO DENEGADO: No encontramos una compra activa con este email.");
       }
 
-      // 2. SI EXISTE LA COMPRA, PROCEDEMOS CON LA AUTENTICACIÓN
+      // 2. SI EXISTE LA COMPRA, PROCEDEMOS
       try {
         await signInWithEmailAndPassword(auth, emailKey, password);
       } catch (authError) {
-        // Si el usuario existe en DB (compró) pero no en Auth (nunca ha entrado),
-        // significa que es su primer acceso. Permitimos crear la contraseña por primera vez.
         if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
              await createUserWithEmailAndPassword(auth, emailKey, password);
         } else if (authError.code === 'auth/wrong-password') {
@@ -91,7 +69,7 @@ const LoginScreen = ({ onLogin }) => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-            <input type="password" required placeholder="Crea o ingresa tu contraseña" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input type="password" required placeholder="Ingresa tu contraseña" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           
           {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-200 flex items-start gap-2"><AlertCircle size={16} className="mt-0.5 shrink-0"/> {error}</div>}
@@ -110,7 +88,6 @@ const LoginScreen = ({ onLogin }) => {
 
 // --- PANTALLA PRINCIPAL (DASHBOARD) ---
 const Dashboard = ({ changeView, userData }) => {
-  // Validación Estricta de Premium desde la base de datos
   const isPremium = userData?.isPremium === true; 
 
   return (
@@ -125,7 +102,7 @@ const Dashboard = ({ changeView, userData }) => {
         )}
       </header>
 
-      {/* Herramientas Básicas (Siempre disponibles si compró) */}
+      {/* Herramientas Básicas */}
       <div className="grid md:grid-cols-2 gap-4 mb-8">
         <button onClick={() => changeView('reflection')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-green-300 text-left transition hover:shadow-md group">
           <Activity className="text-green-600 mb-3 group-hover:scale-110 transition h-8 w-8"/>
@@ -149,7 +126,7 @@ const Dashboard = ({ changeView, userData }) => {
         </button>
       </div>
 
-      {/* Herramientas Premium (Bloqueadas si isPremium es false) */}
+      {/* Herramientas Premium */}
       <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Zap size={14} className="text-yellow-500"/> Pack Premium</h3>
       <div className="grid md:grid-cols-3 gap-4 mb-12">
         {isPremium ? (
@@ -177,7 +154,6 @@ const Dashboard = ({ changeView, userData }) => {
 // --- HERRAMIENTAS (Con Persistencia Real) ---
 
 const ReflectionTool = ({ userEmail, userData }) => {
-  // Leemos el estado inicial de userData, si no existe array, empezamos vacío
   const [entries, setEntries] = useState(userData?.reflections || []);
   const [newEntry, setNewEntry] = useState({ trigger: '', intensity: 5, notes: '' });
 
@@ -185,8 +161,9 @@ const ReflectionTool = ({ userEmail, userData }) => {
     if (!newEntry.trigger) return;
     const entry = { ...newEntry, id: Date.now(), date: new Date().toLocaleDateString() };
     
-    // Actualización optimista
-    setEntries([entry, ...entries]);
+    // Update Local
+    const updatedEntries = [entry, ...entries];
+    setEntries(updatedEntries);
 
     try {
       // Guardamos DIRECTAMENTE en el documento del usuario (identificado por email)
@@ -358,3 +335,4 @@ const App = () => {
 };
 
 export default App;
+
