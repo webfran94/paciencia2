@@ -5,21 +5,12 @@ import {
   Shield, Heart, Smile, Zap, Lock, Star, LogOut 
 } from 'lucide-react';
 
-// IMPORTACIONES REALES DE FIREBASE
+// --- CONEXIÓN REAL A FIREBASE ---
 import { auth, db } from './firebase'; 
-import { 
-  signInWithEmailAndPassword, 
-  onAuthStateChanged, 
-  signOut 
-} from 'firebase/auth';
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc 
-} from 'firebase/firestore';
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
-// --- DATA ESTÁTICA ---
+// --- DATA ESTÁTICA (Mantenida igual) ---
 const SCRIPTS_DATA = [
   {
     id: 1,
@@ -61,7 +52,7 @@ const EMPATHY_CHECKLIST = [
 
 // --- COMPONENTES AUXILIARES ---
 
-// PANTALLA DE LOGIN (CORREGIDA)
+// PANTALLA DE LOGIN (Corregida con manejo de errores específico)
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -75,8 +66,17 @@ const LoginScreen = () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
-      console.error("Error de login:", err.code);
-      setError("Usuario o contraseña incorrectos. Verifica tus credenciales.");
+      console.error(err.code);
+      // Aquí manejamos los errores para que te diga exactamente qué pasa
+      if (err.code === 'auth/user-not-found') {
+        setError('El usuario no existe. Verifica el correo.');
+      } else if (err.code === 'auth/wrong-password') {
+        setError('La contraseña es incorrecta.');
+      } else if (err.code === 'auth/invalid-credential') {
+        setError('Credenciales incorrectas (Usuario o contraseña mal puestos).');
+      } else {
+        setError('Error al intentar ingresar. Revisa tu conexión.');
+      }
     } finally {
       setLoading(false);
     }
@@ -94,12 +94,13 @@ const LoginScreen = () => {
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
-          {error && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg text-center">{error}</div>}
+          {error && <p className="bg-red-50 text-red-600 p-3 rounded-lg text-sm text-center border border-red-100">{error}</p>}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input 
               type="email" 
               required 
+              placeholder="tu@correo.com"
               className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -110,6 +111,7 @@ const LoginScreen = () => {
             <input 
               type="password" 
               required 
+              placeholder="••••••••"
               className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -119,9 +121,9 @@ const LoginScreen = () => {
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition disabled:bg-gray-400"
+            className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition"
           >
-            {loading ? 'Verificando...' : 'Ingresar'}
+            {loading ? 'Entrando...' : 'Ingresar'}
           </button>
         </form>
       </div>
@@ -129,7 +131,7 @@ const LoginScreen = () => {
   );
 };
 
-// HERRAMIENTA DE REFLEXIÓN (CORREGIDA PARA FIRESTORE)
+// 1. REFLECTION TOOL (Actualizada para Firestore)
 const ReflectionTool = ({ userId, userData, updateUserData }) => {
   const [entries, setEntries] = useState(userData?.reflections || []);
   const [newEntry, setNewEntry] = useState({ trigger: '', intensity: 5, notes: '' });
@@ -148,7 +150,7 @@ const ReflectionTool = ({ userId, userData, updateUserData }) => {
       setNewEntry({ trigger: '', intensity: 5, notes: '' });
       setIsAdding(false);
     } catch (err) {
-      console.error("Error al guardar reflexión:", err);
+      console.error("Error al guardar:", err);
     }
   };
 
@@ -165,7 +167,7 @@ const ReflectionTool = ({ userId, userData, updateUserData }) => {
       </div>
 
       {isAdding && (
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-green-100 mb-8">
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-green-100 mb-8 animate-fade-in-down">
           <label className="block text-sm font-medium text-gray-700 mb-1">Detonante</label>
           <select className="w-full p-3 border rounded-lg mb-4 bg-gray-50" value={newEntry.trigger} onChange={e => setNewEntry({...newEntry, trigger: e.target.value})}>
             <option value="">Selecciona...</option>
@@ -182,11 +184,12 @@ const ReflectionTool = ({ userId, userData, updateUserData }) => {
           <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
           <textarea className="w-full p-3 border rounded-lg mb-4 bg-gray-50 h-20" placeholder="¿Qué sentiste en el cuerpo?" value={newEntry.notes} onChange={e => setNewEntry({...newEntry, notes: e.target.value})} />
           
-          <button onClick={handleAdd} className="w-full bg-gray-900 text-white py-3 rounded-lg font-bold hover:bg-gray-800">Guardar en Base de Datos</button>
+          <button onClick={handleAdd} className="w-full bg-gray-900 text-white py-3 rounded-lg font-bold hover:bg-gray-800">Guardar Registro</button>
         </div>
       )}
 
       <div className="space-y-4">
+        {entries.length === 0 && <p className="text-center text-gray-400 py-8">No hay registros aún.</p>}
         {entries.map(entry => (
           <div key={entry.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
             <div>
@@ -197,6 +200,7 @@ const ReflectionTool = ({ userId, userData, updateUserData }) => {
               <p className="text-xs text-gray-500 mt-1">{entry.date}</p>
               {entry.notes && <p className="text-sm text-gray-600 mt-2 italic">"{entry.notes}"</p>}
             </div>
+            <Trash2 size={18} className="text-gray-300 hover:text-red-500 cursor-pointer" />
           </div>
         ))}
       </div>
@@ -204,10 +208,11 @@ const ReflectionTool = ({ userId, userData, updateUserData }) => {
   );
 };
 
-// --- OTROS COMPONENTES (STRESS, COMMUNICATION, ETC.) SE MANTIENEN IGUAL ---
+// 2. STRESS TOOL (Mantenida igual)
 const StressTool = () => {
   const [active, setActive] = useState(false);
   const [text, setText] = useState("Listo");
+
   useEffect(() => {
     if(active) {
       setText("Inhala...");
@@ -215,25 +220,37 @@ const StressTool = () => {
       const t2 = setTimeout(() => setText("Exhala..."), 8000);
       const t3 = setTimeout(() => setActive(false), 12000); 
       return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-    } else { setText("Listo"); }
+    } else {
+      setText("Listo");
+    }
   }, [active]);
+
   return (
     <div className="text-center max-w-md mx-auto py-10">
       <h2 className="text-2xl font-bold mb-2 flex justify-center items-center gap-2"><Wind className="text-purple-500"/> Pausa Biológica</h2>
-      <div className="w-64 h-64 mx-auto bg-purple-100 rounded-full flex items-center justify-center mb-8 relative">
+      <p className="text-gray-600 mb-8">Desactiva la alerta de ira en 60 segundos.</p>
+      
+      <div className="w-64 h-64 mx-auto bg-purple-100 rounded-full flex items-center justify-center mb-8 relative shadow-inner">
         <div className={`absolute inset-0 bg-purple-200 rounded-full transition-transform duration-[4000ms] ${active ? 'scale-100' : 'scale-50'}`}></div>
         <span className="relative z-10 text-3xl font-bold text-purple-800">{text}</span>
       </div>
-      <button onClick={() => setActive(true)} className="bg-purple-600 text-white px-8 py-3 rounded-full font-bold hover:bg-purple-700 transition">Iniciar Pausa</button>
+      
+      <button onClick={() => setActive(true)} className="bg-purple-600 text-white px-8 py-3 rounded-full font-bold hover:bg-purple-700 transition shadow-lg flex items-center gap-2 mx-auto">
+        {active ? <Pause size={18}/> : <Play size={18}/>} {active ? 'Respirando...' : 'Iniciar Pausa'}
+      </button>
     </div>
   );
 };
 
+// 3. COMMUNICATION TOOL (Mantenida igual)
 const CommunicationTool = () => {
   const [expandedId, setExpandedId] = useState(null);
   return (
     <div className="max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><MessageCircle className="text-blue-500"/> Scripts</h2>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-1 flex items-center gap-2"><MessageCircle className="text-blue-500"/> Scripts</h2>
+        <p className="text-sm text-gray-600">Qué decir exactamente para lograr cooperación sin gritar.</p>
+      </div>
       <div className="space-y-4">
         {SCRIPTS_DATA.map(script => (
           <div key={script.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -245,11 +262,11 @@ const CommunicationTool = () => {
               <div className="p-5 pt-0 border-t border-gray-100 bg-gray-50">
                 <div className="grid md:grid-cols-2 gap-4 mt-4">
                   <div className="bg-red-50 p-4 rounded-lg border border-red-100">
-                    <p className="text-xs font-bold text-red-700 mb-1">EVITA DECIR:</p>
+                    <p className="text-xs font-bold text-red-700 mb-1 flex items-center gap-1"><X size={12}/> EVITA DECIR:</p>
                     <p className="text-sm text-gray-700 italic">"{script.dontSay}"</p>
                   </div>
                   <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                    <p className="text-xs font-bold text-green-700 mb-1">MEJOR DI:</p>
+                    <p className="text-xs font-bold text-green-700 mb-1 flex items-center gap-1"><CheckCircle size={12}/> MEJOR DI:</p>
                     <p className="text-sm text-gray-800 font-medium">"{script.doSay}"</p>
                   </div>
                 </div>
@@ -262,33 +279,133 @@ const CommunicationTool = () => {
   );
 };
 
-// DASHBOARD
-const Dashboard = ({ changeView, userData }) => (
-  <div className="max-w-4xl mx-auto">
-    <h1 className="text-3xl font-bold text-gray-900 mb-2">Hola, {userData?.name || 'Usuario'}</h1>
-    <p className="text-gray-500 mb-8">Tus herramientas para hoy.</p>
-
-    <div className="grid md:grid-cols-2 gap-4 mb-8">
-      <button onClick={() => changeView('reflection')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-green-300 text-left transition">
-        <Activity className="text-green-600 mb-3"/>
-        <h3 className="font-bold text-gray-900">Detector de Detonantes</h3>
-        <p className="text-sm text-gray-500">Rastrea y anticipa tu ira</p>
-      </button>
-      <button onClick={() => changeView('stress')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-purple-300 text-left transition">
-        <Wind className="text-purple-600 mb-3"/>
-        <h3 className="font-bold text-gray-900">Botón de Pausa</h3>
-        <p className="text-sm text-gray-500">Calma en 60 segundos</p>
-      </button>
-      <button onClick={() => changeView('communication')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-blue-300 text-left transition">
-        <MessageCircle className="text-blue-600 mb-3"/>
-        <h3 className="font-bold text-gray-900">Scripts</h3>
-        <p className="text-sm text-gray-500">Qué decir exactamente</p>
-      </button>
+// 4. STORIES TOOL (Mantenida igual)
+const StoriesTool = () => (
+  <div className="max-w-2xl mx-auto">
+    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2"><BookOpen className="text-yellow-600"/> Casos Reales</h2>
+    <div className="space-y-4">
+      {STORIES_DATA.map((story, i) => (
+        <div key={i} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="font-bold text-lg text-gray-900">{story.title}</h3>
+          <p className="text-xs font-bold text-yellow-600 uppercase mb-2">{story.author}</p>
+          <p className="text-sm text-gray-600 leading-relaxed">{story.content}</p>
+        </div>
+      ))}
     </div>
   </div>
 );
 
-// --- APP PRINCIPAL (CORREGIDA) ---
+// --- TODAS TUS HERRAMIENTAS PREMIUM RECUPERADAS ---
+const AntiRelapseTool = () => (
+  <div className="max-w-2xl mx-auto">
+    <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2 mb-1"><Shield className="text-blue-600"/> Plan Anti-Recaída</h2>
+    <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 text-center mb-6">
+      <p className="text-blue-800 font-bold text-lg mb-2">Si pasa esto: <span className="font-normal text-gray-700">"Llego tarde y hay tráfico"</span></p>
+      <p className="text-green-700 font-bold text-lg">Entonces haré: <span className="font-normal text-gray-700">"Pondré música y respiraré 3 veces antes de entrar a casa"</span></p>
+    </div>
+    <button className="w-full py-3 bg-white border border-gray-300 text-gray-500 rounded-lg">+ Añadir Nuevo Escenario</button>
+  </div>
+);
+
+const DialogueTool = () => (
+  <div className="max-w-2xl mx-auto">
+    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2"><MessageCircle className="text-purple-600"/> Diálogo Abierto</h2>
+    <div className="grid gap-4">
+      {["La Reparación de 3 Pasos", "Preguntas de Conexión", "El Buzón de Sentimientos"].map((t, i) => (
+        <div key={i} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center cursor-pointer">
+          <span className="font-bold text-gray-700">{t}</span>
+          <ChevronDown className="text-gray-400"/>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const EmpathyTool = () => {
+  const [checked, setChecked] = useState([]);
+  const toggle = (id) => setChecked(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  return (
+    <div className="max-w-2xl mx-auto">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2"><Heart className="text-red-500"/> Checklist de Empatía</h2>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {EMPATHY_CHECKLIST.map(item => (
+          <div key={item.id} onClick={() => toggle(item.id)} className={`p-4 border-b border-gray-100 flex items-center gap-4 cursor-pointer ${checked.includes(item.id) ? 'bg-green-50' : ''}`}>
+            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${checked.includes(item.id) ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300'}`}>
+              {checked.includes(item.id) && <CheckCircle size={14}/>}
+            </div>
+            <p className={`text-sm ${checked.includes(item.id) ? 'text-green-800 font-medium' : 'text-gray-600'}`}>{item.text}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const SelfCareTool = () => (
+  <div className="max-w-2xl mx-auto">
+    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2"><Smile className="text-yellow-500"/> Batería Emocional</h2>
+    <div className="grid grid-cols-2 gap-4">
+      {[{l:"Dormir 7h", i:"😴"}, {l:"Leer 10min", i:"📖"}, {l:"Caminar", i:"🚶"}, {l:"Agua", i:"💧"}].map((h, i) => (
+        <div key={i} className="bg-white p-6 rounded-xl border border-gray-100 text-center hover:shadow-md cursor-pointer transition">
+          <div className="text-4xl mb-2">{h.i}</div>
+          <p className="font-bold text-gray-700">{h.l}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const ConfidenceTool = () => (
+  <div className="max-w-2xl mx-auto">
+    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2"><Star className="text-orange-500"/> Diario de Logros</h2>
+    <div className="bg-orange-50 p-6 rounded-xl border border-orange-100 text-center">
+      <p className="font-bold text-orange-800 mb-2">Hoy logré...</p>
+      <textarea className="w-full p-4 rounded-lg border-orange-200 h-32 mb-4 bg-white" placeholder="Ej: Me detuve antes de gritar..."></textarea>
+      <button className="bg-orange-500 text-white px-6 py-2 rounded-lg font-bold">Celebrar Victoria</button>
+    </div>
+  </div>
+);
+
+// --- DASHBOARD (Mantenida igual) ---
+const Dashboard = ({ changeView, userData }) => (
+  <div className="max-w-4xl mx-auto">
+    <h1 className="text-3xl font-bold text-gray-900 mb-2">Hola, {userData?.name || 'Papá/Mamá'}</h1>
+    <p className="text-gray-500 mb-8">Tus herramientas para hoy.</p>
+    <div className="grid md:grid-cols-2 gap-4 mb-8">
+      <button onClick={() => changeView('reflection')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-green-300 text-left transition">
+        <Activity className="text-green-600 mb-3"/><h3 className="font-bold text-gray-900">Detector de Detonantes</h3>
+      </button>
+      <button onClick={() => changeView('stress')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-purple-300 text-left transition">
+        <Wind className="text-purple-600 mb-3"/><h3 className="font-bold text-gray-900">Botón de Pausa</h3>
+      </button>
+      <button onClick={() => changeView('communication')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-blue-300 text-left transition">
+        <MessageCircle className="text-blue-600 mb-3"/><h3 className="font-bold text-gray-900">Scripts</h3>
+      </button>
+      <button onClick={() => changeView('stories')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-yellow-300 text-left transition">
+        <BookOpen className="text-yellow-600 mb-3"/><h3 className="font-bold text-gray-900">Casos Reales</h3>
+      </button>
+    </div>
+
+    <h3 className="text-xs font-bold text-gray-400 uppercase mb-4 flex items-center gap-2"><Zap size={14} className="text-yellow-500"/> Pack Premium</h3>
+    <div className="grid md:grid-cols-3 gap-4 mb-12">
+      {userData?.isPremium ? (
+        <>
+          <button onClick={() => changeView('antirelapse')} className="bg-white p-4 rounded-xl border border-blue-100 text-center"><Shield className="mx-auto text-blue-600 mb-2"/><span className="font-bold text-sm">Anti-Recaída</span></button>
+          <button onClick={() => changeView('dialogue')} className="bg-white p-4 rounded-xl border border-purple-100 text-center"><MessageCircle className="mx-auto text-purple-600 mb-2"/><span className="font-bold text-sm">Diálogo</span></button>
+          <button onClick={() => changeView('empathy')} className="bg-white p-4 rounded-xl border border-red-100 text-center"><Heart className="mx-auto text-red-500 mb-2"/><span className="font-bold text-sm">Empatía</span></button>
+          <button onClick={() => changeView('selfcare')} className="bg-white p-4 rounded-xl border border-yellow-100 text-center"><Smile className="mx-auto text-yellow-500 mb-2"/><span className="font-bold text-sm">Autocuidado</span></button>
+          <button onClick={() => changeView('confidence')} className="bg-white p-4 rounded-xl border border-orange-100 text-center"><Star className="mx-auto text-orange-500 mb-2"/><span className="font-bold text-sm">Confianza</span></button>
+        </>
+      ) : (
+        <div className="col-span-3 bg-gray-50 p-8 rounded-xl border border-dashed text-center">
+          <Lock className="mx-auto text-gray-400 mb-2"/><p className="text-sm text-gray-500">Premium Bloqueado</p>
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+// --- APP PRINCIPAL (Lógica real de Firebase) ---
 const App = () => {
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
@@ -296,24 +413,17 @@ const App = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Escucha el estado de autenticación real de Firebase
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
-        
-        // Cargar o crear documento en Firestore para el usuario
         const docRef = doc(db, "users", firebaseUser.uid);
         const docSnap = await getDoc(docRef);
         
         if (docSnap.exists()) {
           setUserData(docSnap.data());
         } else {
-          // Si el usuario es nuevo en la base de datos, crear su perfil inicial
-          const initialData = { 
-            name: firebaseUser.email.split('@')[0], 
-            isPremium: true, 
-            reflections: [] 
-          };
+          // Si el usuario existe en Auth pero no en la base de datos (Firestore), lo creamos
+          const initialData = { name: firebaseUser.email.split('@')[0], isPremium: true, reflections: [] };
           await setDoc(docRef, initialData);
           setUserData(initialData);
         }
@@ -323,32 +433,12 @@ const App = () => {
       }
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setView('dashboard');
-    } catch (err) {
-      console.error("Error al cerrar sesión", err);
-    }
-  };
+  const handleLogout = () => signOut(auth);
 
-  const updateUserData = (newData) => {
-    setUserData(newData);
-  };
-
-  if (loading) return (
-    <div className="h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-        <p className="text-green-600 font-bold">Conectando con Firebase...</p>
-      </div>
-    </div>
-  );
-
+  if (loading) return <div className="h-screen flex items-center justify-center text-green-600 font-bold">Cargando aplicación...</div>;
   if (!user) return <LoginScreen />;
 
   return (
@@ -356,28 +446,35 @@ const App = () => {
       <nav className="bg-white border-b sticky top-0 z-50 px-4 h-16 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('dashboard')}>
           <div className="bg-green-600 text-white p-1.5 rounded"><Home size={18} /></div>
-          <span className="font-bold tracking-tight">Manual Paciencia</span>
+          <span className="font-bold">Manual Paciencia</span>
         </div>
-        <button onClick={handleLogout} className="text-gray-400 hover:text-red-500 transition p-2" title="Cerrar Sesión">
+        <button onClick={handleLogout} className="text-gray-400 hover:text-red-500 p-2 rounded-full">
           <LogOut size={20}/>
         </button>
       </nav>
 
-      <main className="p-4 md:p-8">
+      <main className="p-4 md:p-8 animate-fade-in">
         {view !== 'dashboard' && (
-          <button onClick={() => setView('dashboard')} className="mb-6 flex items-center text-sm text-gray-500 hover:text-green-600 transition">
+          <button onClick={() => setView('dashboard')} className="mb-6 flex items-center text-sm text-gray-500 hover:text-green-600 transition font-medium">
             <ChevronDown className="rotate-90 mr-1" size={16} /> Volver al Dashboard
           </button>
         )}
         
         {view === 'dashboard' && <Dashboard changeView={setView} userData={userData} />}
-        {view === 'reflection' && <ReflectionTool userId={user.uid} userData={userData} updateUserData={updateUserData} />}
+        {view === 'reflection' && <ReflectionTool userId={user.uid} userData={userData} updateUserData={(d) => setUserData(d)} />}
         {view === 'stress' && <StressTool />}
         {view === 'communication' && <CommunicationTool />}
+        {view === 'stories' && <StoriesTool />}
+        {view === 'antirelapse' && <AntiRelapseTool />}
+        {view === 'dialogue' && <DialogueTool />}
+        {view === 'empathy' && <EmpathyTool />}
+        {view === 'selfcare' && <SelfCareTool />}
+        {view === 'confidence' && <ConfidenceTool />}
       </main>
     </div>
   );
 };
 
-export default App;
+export default App; App;
+
 
