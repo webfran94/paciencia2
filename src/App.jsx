@@ -440,7 +440,7 @@ const Dashboard = ({ changeView, userData }) => (
 
     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Zap size={14} className="text-yellow-500"/> Pack Premium</h3>
     <div className="grid md:grid-cols-3 gap-4 mb-12">
-      {userData?.isPremium ? (
+      {userData?.status === 'comprador_premium' ? (
         <>
           <button onClick={() => changeView('antirelapse')} className="bg-white p-4 rounded-xl border border-blue-100 text-center hover:shadow-md transition"><Shield className="mx-auto text-blue-600 mb-2"/><span className="font-bold text-sm text-gray-800">Anti-Recaída</span></button>
           <button onClick={() => changeView('dialogue')} className="bg-white p-4 rounded-xl border border-purple-100 text-center hover:shadow-md transition"><MessageCircle className="mx-auto text-purple-600 mb-2"/><span className="font-bold text-sm text-gray-800">Diálogo</span></button>
@@ -531,6 +531,7 @@ const App = () => {
 };
 
 export default App;
+
 
 
 
