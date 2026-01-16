@@ -419,8 +419,8 @@ const ConfidenceTool = () => (
 // --- DASHBOARD PROTEGIDO (REEMPLAZA TU BLOQUE ANTERIOR CON ESTE) ---
 const Dashboard = ({ changeView, userData }) => {
   // Definimos las condiciones de acceso basadas en los campos de Firestore que configuramos en Make
-  const tieneAccesoBasico = userData?.pago_realizado === true || userData?.status === 'comprador_premium';
-  const esPremium = userData?.status === 'comprador_premium';
+  const tieneAccesoBasico = userData?.pago_realizado == true || userData?.pago_realizado === "true" || userData?.status === 'comprador_premium';
+   const esPremium = userData?.status === 'comprador_premium';
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -562,6 +562,7 @@ const App = () => {
 };
 
 export default App;
+
 
 
 
