@@ -416,52 +416,78 @@ const ConfidenceTool = () => (
 );
 
 // --- DASHBOARD (Formato Original) ---
-const Dashboard = ({ changeView, userData }) => (
-  <div className="max-w-4xl mx-auto">
-    <h1 className="text-3xl font-bold text-gray-900 mb-2">Hola, {userData?.name || 'Papá/Mamá'}</h1>
-    <p className="text-gray-500 mb-8">Tus herramientas para hoy.</p>
-    <div className="grid md:grid-cols-2 gap-4 mb-8">
-      <button onClick={() => changeView('reflection')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-green-300 text-left transition hover:shadow-md group">
-        <Activity className="text-green-600 mb-3 group-hover:scale-110 transition"/>
-        <h3 className="font-bold text-gray-900">Detector de Detonantes</h3>
-        <p className="text-sm text-gray-500">Rastrea y anticipa tu ira</p>
-      </button>
-      <button onClick={() => changeView('stress')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-purple-300 text-left transition hover:shadow-md group">
-        <Wind className="text-purple-600 mb-3 group-hover:scale-110 transition"/>
-        <h3 className="font-bold text-gray-900">Botón de Pausa</h3>
-        <p className="text-sm text-gray-500">Calma en 60 segundos</p>
-      </button>
-      <button onClick={() => changeView('communication')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-blue-300 text-left transition hover:shadow-md group">
-        <MessageCircle className="text-blue-600 mb-3 group-hover:scale-110 transition"/>
-        <h3 className="font-bold text-gray-900">Scripts</h3>
-        <p className="text-sm text-gray-500">Qué decir exactamente</p>
-      </button>
-      <button onClick={() => changeView('stories')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-yellow-300 text-left transition hover:shadow-md group">
-        <BookOpen className="text-yellow-600 mb-3 group-hover:scale-110 transition"/>
-        <h3 className="font-bold text-gray-900">Casos Reales</h3>
-        <p className="text-sm text-gray-500">Inspiración de otros padres</p>
-      </button>
-    </div>
+// --- DASHBOARD PROTEGIDO (REEMPLAZA TU BLOQUE ANTERIOR CON ESTE) ---
+const Dashboard = ({ changeView, userData }) => {
+  // Definimos las condiciones de acceso basadas en los campos de Firestore que configuramos en Make
+  const tieneAccesoBasico = userData?.pago_realizado === true || userData?.status === 'comprador_premium';
+  const esPremium = userData?.status === 'comprador_premium';
 
-    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Zap size={14} className="text-yellow-500"/> Pack Premium</h3>
-    <div className="grid md:grid-cols-3 gap-4 mb-12">
-      {userData?.status === 'comprador_premium' ? (
-        <>
-          <button onClick={() => changeView('antirelapse')} className="bg-white p-4 rounded-xl border border-blue-100 text-center hover:shadow-md transition"><Shield className="mx-auto text-blue-600 mb-2"/><span className="font-bold text-sm text-gray-800">Anti-Recaída</span></button>
-          <button onClick={() => changeView('dialogue')} className="bg-white p-4 rounded-xl border border-purple-100 text-center hover:shadow-md transition"><MessageCircle className="mx-auto text-purple-600 mb-2"/><span className="font-bold text-sm text-gray-800">Diálogo</span></button>
-          <button onClick={() => changeView('empathy')} className="bg-white p-4 rounded-xl border border-red-100 text-center hover:shadow-md transition"><Heart className="mx-auto text-red-500 mb-2"/><span className="font-bold text-sm text-gray-800">Empatía</span></button>
-          <button onClick={() => changeView('selfcare')} className="bg-white p-4 rounded-xl border border-yellow-100 text-center hover:shadow-md transition"><Smile className="mx-auto text-yellow-500 mb-2"/><span className="font-bold text-sm text-gray-800">Autocuidado</span></button>
-          <button onClick={() => changeView('confidence')} className="bg-white p-4 rounded-xl border border-orange-100 text-center hover:shadow-md transition"><Star className="mx-auto text-orange-500 mb-2"/><span className="font-bold text-sm text-gray-800">Confianza</span></button>
-        </>
+  return (
+    <div className="max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">Hola, {userData?.name || 'Papá/Mamá'}</h1>
+      <p className="text-gray-500 mb-8">Tus herramientas para hoy.</p>
+
+      {/* SECCIÓN 1: HERRAMIENTAS BÁSICAS */}
+      {tieneAccesoBasico ? (
+        <div className="grid md:grid-cols-2 gap-4 mb-8 animate-fade-in">
+          <button onClick={() => changeView('reflection')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-green-300 text-left transition hover:shadow-md group">
+            <Activity className="text-green-600 mb-3 group-hover:scale-110 transition"/>
+            <h3 className="font-bold text-gray-900">Detector de Detonantes</h3>
+            <p className="text-sm text-gray-500">Rastrea y anticipa tu ira</p>
+          </button>
+          <button onClick={() => changeView('stress')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-purple-300 text-left transition hover:shadow-md group">
+            <Wind className="text-purple-600 mb-3 group-hover:scale-110 transition"/>
+            <h3 className="font-bold text-gray-900">Botón de Pausa</h3>
+            <p className="text-sm text-gray-500">Calma en 60 segundos</p>
+          </button>
+          <button onClick={() => changeView('communication')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-blue-300 text-left transition hover:shadow-md group">
+            <MessageCircle className="text-blue-600 mb-3 group-hover:scale-110 transition"/>
+            <h3 className="font-bold text-gray-900">Scripts</h3>
+            <p className="text-sm text-gray-500">Qué decir exactamente</p>
+          </button>
+          <button onClick={() => changeView('stories')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-yellow-300 text-left transition hover:shadow-md group">
+            <BookOpen className="text-yellow-600 mb-3 group-hover:scale-110 transition"/>
+            <h3 className="font-bold text-gray-900">Casos Reales</h3>
+            <p className="text-sm text-gray-500">Inspiración de otros padres</p>
+          </button>
+        </div>
       ) : (
-        <div className="col-span-3 bg-gray-50 p-8 rounded-xl border border-dashed border-gray-300 text-center">
-          <Lock className="mx-auto text-gray-400 mb-2" />
-          <p className="text-sm text-gray-500 mb-4 font-medium">Herramientas Premium Bloqueadas</p>
+        /* VISTA BLOQUEADA PARA LEADS QUE NO HAN PAGADO EL PRODUCTO PRINCIPAL */
+        <div className="bg-gray-50 p-10 rounded-xl border border-dashed border-gray-300 text-center mb-8">
+          <Lock className="mx-auto text-gray-400 mb-4" size={40} />
+          <h3 className="text-lg font-bold text-gray-800 mb-2">Contenido Protegido</h3>
+          <p className="text-sm text-gray-500 max-w-xs mx-auto">
+            Hemos encontrado tu registro, pero el acceso a las herramientas básicas aún no está activo. 
+            Por favor, completa tu compra para desbloquear el Manual.
+          </p>
         </div>
       )}
+
+      {/* SECCIÓN 2: PACK PREMIUM */}
+      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+        <Zap size={14} className="text-yellow-500"/> Pack Premium
+      </h3>
+      
+      <div className="grid md:grid-cols-3 gap-4 mb-12">
+        {esPremium ? (
+          <>
+            <button onClick={() => changeView('antirelapse')} className="bg-white p-4 rounded-xl border border-blue-100 text-center hover:shadow-md transition"><Shield className="mx-auto text-blue-600 mb-2"/><span className="font-bold text-sm text-gray-800">Anti-Recaída</span></button>
+            <button onClick={() => changeView('dialogue')} className="bg-white p-4 rounded-xl border border-purple-100 text-center hover:shadow-md transition"><MessageCircle className="mx-auto text-purple-600 mb-2"/><span className="font-bold text-sm text-gray-800">Diálogo</span></button>
+            <button onClick={() => changeView('empathy')} className="bg-white p-4 rounded-xl border border-red-100 text-center hover:shadow-md transition"><Heart className="mx-auto text-red-500 mb-2"/><span className="font-bold text-sm text-gray-800">Empatía</span></button>
+            <button onClick={() => changeView('selfcare')} className="bg-white p-4 rounded-xl border border-yellow-100 text-center hover:shadow-md transition"><Smile className="mx-auto text-yellow-500 mb-2"/><span className="font-bold text-sm text-gray-800">Autocuidado</span></button>
+            <button onClick={() => changeView('confidence')} className="bg-white p-4 rounded-xl border border-orange-100 text-center hover:shadow-md transition"><Star className="mx-auto text-orange-500 mb-2"/><span className="font-bold text-sm text-gray-800">Confianza</span></button>
+          </>
+        ) : (
+          <div className="col-span-3 bg-gray-50 p-8 rounded-xl border border-dashed border-gray-300 text-center">
+            <Lock className="mx-auto text-gray-400 mb-2" />
+            <p className="text-sm text-gray-500 mb-4 font-medium">Herramientas Premium Bloqueadas</p>
+            {/* Opcional: podrías poner un botón de "Comprar Upsell" aquí */}
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // --- APP PRINCIPAL ---
 const App = () => {
@@ -536,6 +562,7 @@ const App = () => {
 };
 
 export default App;
+
 
 
 
