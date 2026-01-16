@@ -180,14 +180,7 @@ const LoginScreen = () => {
 };
 
 
-// Solo muestra si ha pagado el principal O si es Premium
-{(userData?.pago_realizado || userData?.status === 'comprador_premium') ? (
-   <div className="grid md:grid-cols-2 gap-4 mb-8">
-     {/* Aquí van tus 4 botones: Detector, Pausa, etc. */}
-   </div>
-) : (
-   <div className="text-center p-8">Por favor, completa tu compra para acceder.</div>
-)}
+
 
 
 
@@ -543,6 +536,7 @@ const App = () => {
 };
 
 export default App;
+
 
 
 
