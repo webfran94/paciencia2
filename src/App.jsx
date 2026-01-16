@@ -24,7 +24,7 @@ import {
   deleteDoc
 } from 'firebase/firestore';
 
-// --- DATA ESTÁTICA ---
+// --- DATA ESTÁTICA (SCRIPTS, STORIES, ETC.) ---
 const SCRIPTS_DATA = [
   {
     id: 1,
@@ -37,24 +37,7 @@ const SCRIPTS_DATA = [
   }
 ];
 
-const STORIES_DATA = [
-  {
-    id: 1,
-    title: "De Gritos Diarios a Conexión Real",
-    author: "Carlos M., Padre de 2",
-    content: "Pensé que era mi carácter. 'Soy explosivo', me decía. Hasta que entendí que mi ira era solo miedo a perder el control."
-  }
-];
-
-const EMPATHY_CHECKLIST = [
-  { id: 1, text: "Me bajé a su altura visual antes de hablar." },
-  { id: 2, text: "Validé su emoción antes de corregir." },
-  { id: 3, text: "Escuché su versión sin interrumpir." },
-  { id: 4, text: "No usé etiquetas." },
-  { id: 5, text: "Ofrecí un abrazo." }
-];
-
-// --- PANTALLA DE LOGIN (FLUJO CORREGIDO) ---
+// --- PANTALLA DE LOGIN ---
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -65,47 +48,40 @@ const LoginScreen = () => {
 
   const cleanEmail = email.trim().toLowerCase();
 
-  // PASO 1: VERIFICAR SI EL CORREO EXISTE EN LA BASE DE DATOS
+  // PASO 1: VERIFICAR COMPRA EN FIRESTORE
   const verifyEmail = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      // Buscamos el documento por ID (que es el email en Make)
       const docRef = doc(db, "users", cleanEmail);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
         const data = docSnap.data();
-        // Si existe en DB pero no tiene cuenta vinculada (authLinked)
         setIsNewUser(!data.authLinked);
         setStep('password');
       } else {
-        setError('No encontramos ninguna compra con este correo. Por favor, verifica tus datos o contacta a soporte.');
+        setError('No encontramos ninguna compra con este correo. Verifica tus datos.');
       }
     } catch (err) {
-      setError('Error de conexión. Intenta de nuevo.');
+      setError('Error al consultar la base de datos.');
     } finally {
       setLoading(false);
     }
   };
 
-  // PASO 2: LOGUEAR O CREAR CONTRASEÑA
+  // PASO 2: ACTIVAR O INGRESAR
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres por seguridad.');
-      setLoading(false);
-      return;
-    }
-
     try {
       if (isNewUser) {
-        // CREAR CUENTA (NUEVO COMPRADOR)
+        if (password.length < 6) throw new Error('short-password');
+        
         const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         const user = userCredential.user;
 
@@ -113,7 +89,6 @@ const LoginScreen = () => {
         const docSnap = await getDoc(docRef);
         const dataFromMake = docSnap.data();
 
-        // Mover datos del doc-email al doc-UID
         await setDoc(doc(db, "users", user.uid), {
           ...dataFromMake,
           uid: user.uid,
@@ -121,14 +96,15 @@ const LoginScreen = () => {
         });
         await deleteDoc(docRef);
       } else {
-        // LOGIN NORMAL
         await signInWithEmailAndPassword(auth, cleanEmail, password);
       }
     } catch (err) {
-      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+      if (err.message === 'short-password') {
+        setError('La contraseña debe tener al menos 6 caracteres.');
+      } else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setError('Contraseña incorrecta.');
       } else {
-        setError('Error al procesar el acceso. Verifica tu conexión.');
+        setError('Error de acceso. Intenta de nuevo.');
       }
     } finally {
       setLoading(false);
@@ -143,14 +119,13 @@ const LoginScreen = () => {
             <Home size={32} />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Manual de la Paciencia</h1>
-          <p className="text-gray-500 text-sm">Área de Miembros</p>
         </div>
 
         {step === 'email' ? (
           <form onSubmit={verifyEmail} className="space-y-4">
-            {error && <div className="p-3 rounded-lg text-sm text-center border bg-red-50 text-red-600 border-red-100">{error}</div>}
+            {error && <div className="p-3 rounded-lg text-sm text-center bg-red-50 text-red-600 border border-red-100">{error}</div>}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email de tu compra</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email de compra</label>
               <input type="email" required className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-green-500" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <button type="submit" disabled={loading} className="w-full py-3 bg-green-600 rounded-lg font-bold text-white hover:bg-green-700 transition">
@@ -160,16 +135,16 @@ const LoginScreen = () => {
         ) : (
           <form onSubmit={handleAuth} className="space-y-4">
             {error && <div className={`p-3 rounded-lg text-sm text-center border ${isNewUser ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-red-50 text-red-600 border-red-100'}`}>{error}</div>}
-            <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-600 mb-2">Acceso para: <strong>{cleanEmail}</strong></div>
+            <div className="text-xs text-gray-500 text-center mb-2">Acceso para: {cleanEmail}</div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{isNewUser ? 'Crea una contraseña' : 'Ingresa tu contraseña'}</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{isNewUser ? 'Crea tu contraseña' : 'Contraseña'}</label>
               <input type="password" required className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-green-500" value={password} onChange={(e) => setPassword(e.target.value)} />
-              {isNewUser && <p className="text-[10px] text-gray-400 mt-1">Mínimo 6 caracteres.</p>}
+              {isNewUser && <p className="text-[10px] text-gray-400 mt-1">Usa al menos 6 caracteres.</p>}
             </div>
-            <button type="submit" disabled={loading} className={`w-full py-3 rounded-lg font-bold text-white transition ${isNewUser ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}>
+            <button type="submit" disabled={loading} className={`w-full py-3 rounded-lg font-bold text-white transition ${isNewUser ? 'bg-blue-600' : 'bg-green-600'}`}>
               {loading ? 'Procesando...' : (isNewUser ? 'Activar Acceso' : 'Entrar')}
             </button>
-            <button type="button" onClick={() => setStep('email')} className="w-full text-xs text-gray-400 hover:text-gray-600 mt-2">Usar otro correo</button>
+            <button type="button" onClick={() => setStep('email')} className="w-full text-xs text-gray-400 mt-2">Usar otro correo</button>
           </form>
         )}
       </div>
@@ -177,14 +152,15 @@ const LoginScreen = () => {
   );
 };
 
-// --- DASHBOARD (PROTECCIÓN DE ACCESO) ---
+// --- DASHBOARD ---
 const Dashboard = ({ changeView, userData }) => {
-  const tieneAccesoBasico = userData?.pago_realizado === true || userData?.pago_realizado === "true" || userData?.status === 'comprador_premium';
+  // SIMPLIFICACIÓN: Si existe el documento en Firestore, tiene acceso básico
+  const tieneAccesoBasico = !!userData; 
   const esPremium = userData?.status === 'comprador_premium';
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Hola, {userData?.first_name || userData?.name || 'Papá/Mamá'}</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">Hola, {userData?.first_name || 'Papá/Mamá'}</h1>
       <p className="text-gray-500 mb-8">Tus herramientas para hoy.</p>
 
       {tieneAccesoBasico ? (
@@ -203,10 +179,8 @@ const Dashboard = ({ changeView, userData }) => {
           </button>
         </div>
       ) : (
-        <div className="bg-gray-50 p-10 rounded-xl border border-dashed text-center mb-8">
-          <Lock className="mx-auto text-gray-400 mb-4" size={40} />
-          <h3 className="text-lg font-bold mb-2">Acceso Pendiente</h3>
-          <p className="text-sm text-gray-500">No hemos detectado el pago del Manual básico para este correo.</p>
+        <div className="bg-gray-50 p-10 rounded-xl border border-dashed text-center">
+          <Lock className="mx-auto text-gray-400 mb-2" /><p>Acceso Protegido</p>
         </div>
       )}
 
@@ -226,7 +200,7 @@ const Dashboard = ({ changeView, userData }) => {
   );
 };
 
-// --- APP PRINCIPAL (LÓGICA DE PERSISTENCIA) ---
+// --- APP PRINCIPAL ---
 const App = () => {
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
@@ -241,7 +215,7 @@ const App = () => {
         if (docSnap.exists()) {
           setUserData(docSnap.data());
         } else {
-          // Si no existe por UID, buscar por email (caso activación rápida)
+          // Búsqueda por email si la cuenta acaba de ser creada
           const q = query(collection(db, "users"), where("email", "==", firebaseUser.email));
           const querySnapshot = await getDocs(q);
           if (!querySnapshot.empty) setUserData(querySnapshot.docs[0].data());
@@ -257,7 +231,7 @@ const App = () => {
 
   const handleLogout = () => signOut(auth);
 
-  if (loading) return <div className="h-screen flex items-center justify-center text-green-600 font-bold">Cargando aplicación...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center text-green-600 font-bold">Cargando...</div>;
   if (!user) return <LoginScreen />;
 
   return (
@@ -272,12 +246,9 @@ const App = () => {
       <main className="p-4 md:p-8">
         {view !== 'dashboard' && <button onClick={() => setView('dashboard')} className="mb-6 flex items-center text-sm text-gray-500 hover:text-green-600 font-medium"><ChevronDown className="rotate-90 mr-1" size={16} /> Volver</button>}
         {view === 'dashboard' && <Dashboard changeView={setView} userData={userData} />}
-        {/* Aquí irían los otros componentes (ReflectionTool, etc.) */}
       </main>
     </div>
   );
 };
 
 export default App;
-
-
