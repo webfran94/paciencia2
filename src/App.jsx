@@ -2,195 +2,352 @@ import React, { useState, useEffect } from 'react';
 import { 
   Home, Wind, MessageCircle, Map, CheckCircle2, 
   Lock, LogOut, Zap, Activity, Heart, Eye, Clock, 
-  ChevronRight, AlertTriangle, Shield, Flame, X, Plus
+  ChevronRight, AlertTriangle, Shield, Flame, X, Plus, 
+  ArrowRight, Coffee, Moon, Sun, Laptop
 } from 'lucide-react';
 import { auth, db } from './firebase'; 
-import { signOut } from 'firebase/auth';
+import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 
-// --- COMPONENTES DE INTERFAZ (ESTILO CIERRA CICLOS) ---
-const Card = ({ children, className = "", onClick }) => (
-  <div onClick={onClick} className={`bg-white rounded-2xl border border-slate-100 shadow-sm transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:border-orange-200' : ''} ${className}`}>
+// --- ESTILOS DINÁMICOS SEGÚN NIVEL DE PACIENCIA ---
+const getPatienceColor = (level: number) => {
+  if (level <= 3) return 'from-emerald-50 to-teal-50 border-emerald-100 text-emerald-700';
+  if (level <= 7) return 'from-orange-50 to-amber-50 border-orange-100 text-orange-700';
+  return 'from-red-50 to-rose-50 border-red-100 text-red-700 animate-pulse';
+};
+
+// --- COMPONENTES UI BASE ---
+const Card = ({ children, className = "", onClick }: any) => (
+  <div onClick={onClick} className={`bg-white rounded-3xl border shadow-sm transition-all duration-300 ${onClick ? 'cursor-pointer hover:shadow-xl hover:-translate-y-1' : ''} ${className}`}>
     {children}
   </div>
 );
 
-const Button = ({ children, variant = "primary", className = "", ...props }) => {
-  const base = "flex items-center justify-center rounded-xl font-bold transition-all px-6 py-3 w-full text-sm";
-  const variants = {
+const Button = ({ children, variant = "primary", className = "", ...props }: any) => {
+  const base = "flex items-center justify-center rounded-2xl font-bold transition-all px-6 py-4 w-full text-sm uppercase tracking-widest";
+  const variants: any = {
     primary: "bg-slate-900 text-white hover:bg-slate-800",
-    orange: "bg-orange-600 text-white hover:bg-orange-700 shadow-lg shadow-orange-200",
-    outline: "border-2 border-slate-200 text-slate-600 hover:bg-slate-50",
+    orange: "bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:shadow-lg shadow-orange-200",
+    red: "bg-gradient-to-r from-red-600 to-rose-600 text-white animate-bounce",
+    outline: "border-2 border-slate-100 text-slate-600 hover:bg-slate-50",
     ghost: "text-slate-400 hover:text-red-500"
   };
   return <button className={`${base} ${variants[variant]} ${className}`} {...props}>{children}</button>;
 };
 
-// --- VISTA: HERRAMIENTA SOS (INTERCEPTOR) ---
-const SOSTool = () => {
-  const [step, setStep] = useState(0);
-  const steps = [
-    { t: "¡ALTO! No digas ni una palabra más.", i: <Wind className="w-12 h-12 text-blue-500" /> },
-    { t: "Respira: Inhala en 4 segundos... exhala en 6.", i: <Activity className="w-12 h-12 text-orange-500" /> },
-    { t: "Tu hijo es pequeño, tú eres el adulto. Él te necesita.", i: <Heart className="w-12 h-12 text-red-500" /> },
-    { t: "Baja tu volumen. Susurra si es necesario.", i: <Shield className="w-12 h-12 text-green-500" /> }
-  ];
-  return (
-    <div className="flex flex-col items-center justify-center space-y-8 py-12 animate-in fade-in zoom-in duration-300">
-      <div className="w-64 h-64 rounded-full bg-slate-900 border-[10px] border-orange-500 flex flex-col items-center justify-center text-center p-6 shadow-2xl">
-        {steps[step].i}
-        <p className="text-white text-sm font-bold mt-4 leading-tight">{steps[step].t}</p>
-      </div>
-      <Button onClick={() => setStep(step < 3 ? step + 1 : 0)} variant="orange" className="max-w-xs">
-        {step < 3 ? "Siguiente Paso" : "Reiniciar Interceptor"}
-      </Button>
-    </div>
-  );
-};
+// --- 1. HERRAMIENTA: MAPA DE ZONAS ROJAS ---
+const MapaTool = ({ userData, updateUserData }: any) => {
+  const [level, setLevel] = useState(userData?.patience_level || 5);
+  const [triggers, setTriggers] = useState(userData?.selectedTriggers || []);
+  const [customTrigger, setCustomTrigger] = useState('');
 
-// --- VISTA: DIARIO DE REDENCIÓN (REINICIA RACHA) ---
-const DiaryTool = ({ userId, userData, updateUserData }) => {
-  const [exploded, setExploded] = useState(null);
-  
-  const handleSave = async () => {
-    const today = new Date().toISOString();
-    const newData = { ...userData };
-    
-    if (exploded === 'si') {
-      newData.lastGritoDate = today; // Si gritó, la fecha de racha es HOY (reinicio)
-    }
-    
+  const commonTriggers = ["Ruido excesivo", "Desobediencia repetida", "Cansancio acumulado", "Desorden en casa", "Prisa por salir"];
+
+  const toggleTrigger = (t: string) => {
+    const next = triggers.includes(t) ? triggers.filter((x: any) => x !== t) : [...triggers, t];
+    setTriggers(next);
+  };
+
+  const save = async () => {
     try {
-      await updateDoc(doc(db, "users", userData.email), { 
-        lastGritoDate: newData.lastGritoDate || today 
-      });
-      updateUserData(newData);
-      alert("Registro guardado. Tu racha se ha actualizado.");
+      const docRef = doc(db, "users", userData.email);
+      await updateDoc(docRef, { patience_level: level, selectedTriggers: triggers });
+      updateUserData({ ...userData, patience_level: level, selectedTriggers: triggers });
+      alert("Mapa actualizado, hijo. Mantente atento a esas señales.");
     } catch (e) { console.error(e); }
   };
 
   return (
-    <div className="space-y-6 max-w-md mx-auto py-6">
-      <h2 className="text-2xl font-black text-slate-900">Diario de Redención</h2>
-      <Card className="p-6 space-y-4">
-        <p className="text-slate-600 font-medium text-center">¿Hoy lograste mantener el mando o hubo una explosión?</p>
-        <div className="grid grid-cols-2 gap-4">
-          <button onClick={() => setExploded('no')} className={`p-4 rounded-xl border-2 transition-all ${exploded === 'no' ? 'border-green-500 bg-green-50' : 'border-slate-100'}`}>
-            <Smile className="mx-auto mb-2 text-green-500" />
-            <span className="font-bold text-xs uppercase">Mantuve la Calma</span>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <section className="bg-slate-900 p-8 rounded-[40px] text-white">
+        <h2 className="text-2xl font-black mb-2">Paso 1: Prevención</h2>
+        <p className="text-slate-400 text-sm italic">"Identificar el fuego antes de que se vuelva incendio es de sabios."</p>
+      </section>
+
+      <Card className="p-8 space-y-6">
+        <h3 className="font-bold text-slate-900">¿Qué te está robando la paz hoy? (Elige 3)</h3>
+        <div className="flex flex-wrap gap-2">
+          {commonTriggers.map(t => (
+            <button key={t} onClick={() => toggleTrigger(t)} className={`px-4 py-2 rounded-full text-xs font-bold border-2 transition-all ${triggers.includes(t) ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-slate-100 text-slate-400'}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input value={customTrigger} onChange={e => setCustomTrigger(e.target.value)} placeholder="Otro detonante..." className="flex-1 bg-slate-50 p-3 rounded-xl text-sm outline-none" />
+          <Button onClick={() => {if(customTrigger){setTriggers([...triggers, customTrigger]); setCustomTrigger('');}}} variant="outline" className="w-auto px-4"><Plus size={18}/></Button>
+        </div>
+      </Card>
+
+      <Card className={`p-8 space-y-6 transition-colors duration-500 ${getPatienceColor(level)}`}>
+        <h3 className="font-bold">Nivel de tu Tanque de Energía</h3>
+        <input type="range" min="1" max="10" value={level} onChange={e => setLevel(parseInt(e.target.value))} className="w-full h-3 bg-white/50 rounded-lg appearance-none cursor-pointer accent-current" />
+        <div className="text-5xl font-black text-center">{level}/10</div>
+        <p className="text-xs text-center font-medium opacity-80">
+          {level > 7 ? "⚠️ TU SISTEMA ESTÁ SOBRECARGADO. Ve directo al Botón SOS." : "✅ Estás en control. Respira y sigue guiando."}
+        </p>
+      </Card>
+      
+      <Button onClick={save} variant="orange">Guardar y Estar Alerta</Button>
+    </div>
+  );
+};
+
+// --- 2. HERRAMIENTA: BOTÓN SOS (EL INTERCEPTOR) ---
+const SOSTool = () => {
+  const [step, setStep] = useState(0);
+  const [vent, setVent] = useState('');
+
+  const messages = [
+    "Hijo, antes de gritar... ¡ESPERA! Tu hijo no es el enemigo.",
+    "Si explotas ahora, tú lo sufrirás esta noche con culpa. ¿Quieres eso?",
+    "¿Recuerdas cuando ese angelito cabía en tus brazos? Él sigue ahí, asustado.",
+    "Toma un vaso de agua o mira al horizonte 10 segundos. No sucumbas al instinto.",
+    "Eres su héroe, no su ogro. Respira y vuelve a empezar."
+  ];
+
+  return (
+    <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 space-y-10 animate-in zoom-in duration-300">
+      <div className="w-72 h-72 rounded-full bg-slate-900 border-[12px] border-orange-500 flex flex-col items-center justify-center text-center p-8 shadow-2xl relative">
+        <div className="absolute -top-4 bg-orange-500 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase">Freno de Emergencia</div>
+        <p className="text-white text-lg font-bold leading-tight">{messages[step % messages.length]}</p>
+      </div>
+
+      {step < 5 ? (
+        <Button onClick={() => setStep(step + 1)} variant="orange" className="max-w-xs shadow-2xl">Presionar para Calmarme</Button>
+      ) : (
+        <div className="w-full max-w-md space-y-4 animate-in fade-in">
+           <p className="text-center text-slate-500 text-sm font-medium italic">"Yo te escucho, hijo. Cuéntame aquí lo que sientes, desahógate conmigo. Nadie más lo leerá."</p>
+           <textarea value={vent} onChange={e => setVent(e.target.value)} placeholder="Escribe aquí tu rabia, tu cansancio... suéltalo todo." className="w-full h-40 p-6 rounded-[32px] bg-slate-100 border-none outline-none text-slate-700 text-sm italic shadow-inner" />
+           <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest">Al salir de aquí, esto se borrará para siempre.</p>
+           <Button onClick={() => window.location.reload()} variant="primary">Ya estoy mejor, volver</Button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- 3. HERRAMIENTA: SCRIPTS DE MANDO ---
+const ScriptsTool = () => {
+  const [cat, setCat] = useState('dormir');
+  const data: any = {
+    dormir: [
+      { f: "[Acción Autónoma] o [Acción con Ayuda]", s: "¿Te pones el pijama tú solo como un rayo o te ayudo yo y leemos medio cuento menos?" },
+      { f: "[Juego de Traslado]", s: "¿Quieres ir a la cama saltando como rana o caminando como elefante?" }
+    ],
+    comida: [
+      { f: "[Metáfora de Bichitos]", s: "Esos dulces tienen bichitos que te ponen pesado. La sopa tiene escudos invisibles contra ellos. ¿Cuántos escudos quieres: 5 o 10?" },
+      { f: "[Regla de Oro]", s: "Si comes la comida de mamá primero, tu estómago estará fuerte para el postre. Si no hay comida fuerte, el postre no puede entrar." }
+    ],
+    orden: [
+      { f: "[Caja de Descanso]", s: "Los juguetes que se queden en el suelo se irán a mi 'Caja de Descanso' hasta mañana porque están muy cansados." },
+      { f: "[Capitán de Limpieza]", s: "¿Quieres recoger primero los cubos rojos o los azules? Tú diriges hoy, capitán." }
+    ]
+  };
+
+  return (
+    <div className="space-y-6 animate-in slide-in-from-right duration-500">
+      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+        {Object.keys(data).map(k => (
+          <button key={k} onClick={() => setCat(k)} className={`px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all ${cat === k ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
+            {k}
           </button>
-          <button onClick={() => setExploded('si')} className={`p-4 rounded-xl border-2 transition-all ${exploded === 'si' ? 'border-red-500 bg-red-50' : 'border-slate-100'}`}>
+        ))}
+      </div>
+      
+      <div className="space-y-4">
+        {data[cat].map((item: any, i: number) => (
+          <Card key={i} className="p-6 border-l-[6px] border-orange-500">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fórmula: {item.f}</p>
+            <p className="text-slate-800 font-bold italic">"{item.s}"</p>
+          </Card>
+        ))}
+      </div>
+      
+      <div className="bg-orange-50 p-6 rounded-[32px] border border-orange-100">
+        <p className="text-xs text-orange-700 font-medium italic">"Recuerda, hijo: el secreto no es el guion, es cumplir lo que dices con una sonrisa y firmeza."</p>
+      </div>
+    </div>
+  );
+};
+
+// --- 4. HERRAMIENTA: DIARIO (CIERRE Y RACHA) ---
+const DiarioTool = ({ userData, updateUserData }: any) => {
+  const [ans, setAns] = useState({ v: '', d: '', p: '' });
+  const [yelled, setYelled] = useState<boolean | null>(null);
+
+  const finish = async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const newData = { ...userData };
+    
+    if (yelled === true) {
+      newData.lastYelledDate = today; // Reinicia racha
+    } else if (!userData.lastYelledDate) {
+      newData.lastYelledDate = today; 
+    }
+
+    try {
+      await updateDoc(doc(db, "users", userData.email), { 
+        lastYelledDate: newData.lastYelledDate,
+        lastReflections: ans 
+      });
+      updateUserData(newData);
+      alert("Ciclo cerrado. Duerme en paz.");
+    } catch (e) { console.error(e); }
+  };
+
+  return (
+    <div className="space-y-8 py-6">
+      <h2 className="text-2xl font-black text-slate-900">Diario de Redención</h2>
+      <Card className="p-8 space-y-6">
+        <p className="font-bold text-center">¿Hoy lograste ser el ancla o hubo tormenta?</p>
+        <div className="grid grid-cols-2 gap-4">
+          <button onClick={() => setYelled(false)} className={`p-6 rounded-3xl border-2 transition-all ${yelled === false ? 'border-emerald-500 bg-emerald-50' : 'border-slate-50'}`}>
+            <Sun className="mx-auto mb-2 text-emerald-500" />
+            <span className="text-[10px] font-black uppercase">Victoria</span>
+          </button>
+          <button onClick={() => setYelled(true)} className={`p-6 rounded-3xl border-2 transition-all ${yelled === true ? 'border-red-500 bg-red-50' : 'border-slate-50'}`}>
             <Flame className="mx-auto mb-2 text-red-500" />
-            <span className="font-bold text-xs uppercase">Exploté/Grité</span>
+            <span className="text-[10px] font-black uppercase">Recaída</span>
           </button>
         </div>
-        {exploded && <Button onClick={handleSave} variant="orange">Guardar en Bitácora</Button>}
+        
+        <div className="space-y-4">
+          <p className="text-sm font-bold text-slate-700">¿Cuál fue tu pequeña victoria de hoy?</p>
+          <textarea onChange={e => setAns({...ans, v: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl text-sm italic outline-none" placeholder="Aunque sea pequeña..." />
+        </div>
+
+        <Button onClick={finish} variant="orange" disabled={yelled === null}>Cerrar el día</Button>
       </Card>
+      
+      <p className="text-center text-slate-400 text-xs italic">"Duerme tranquilo, que el sol de mañana no sabe nada de los errores de hoy."</p>
     </div>
   );
 };
 
 // --- DASHBOARD PRINCIPAL ---
-const InternalDashboard = ({ userData, setUserData }) => {
-  const [view, setView] = useState('home');
+const Dashboard = ({ userData, setUserData, setView }: any) => {
   const esPremium = userData?.hasUpsell === 1 || userData?.status === 'comprador_premium';
-
-  // Lógica de Racha
+  
   const calculateStreak = () => {
-    if (!userData?.lastGritoDate) return 1;
-    const last = new Date(userData.lastGritoDate);
+    if (!userData?.lastYelledDate) return 0;
+    const last = new Date(userData.lastYelledDate);
     const now = new Date();
-    const diffTime = Math.abs(now - last);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    const diff = Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : 0;
   };
 
-  const streak = calculateStreak();
-
-  const handleLogout = () => signOut(auth);
-
-  if (view === 'sos') return <SOSTool />;
-  if (view === 'diary') return <DiaryTool userId={userData.uid} userData={userData} updateUserData={setUserData} />;
-
   return (
-    <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
-      
-      {/* BANNER BIENVENIDA */}
-      <section className="pt-6">
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-          Hola, {userData?.first_name || 'Papá/Mamá'}.
-        </h1>
-        <p className="text-slate-500 italic">Hoy es un buen día para ser el ancla de tu hogar.</p>
-      </section>
-
-      {/* INDICADOR DE RACHA */}
-      <Card className="bg-slate-900 text-white border-0 p-6 relative overflow-hidden">
-        <div className="relative z-10 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-widest text-orange-400 mb-1">Tu Racha Actual</p>
-            <h2 className="text-5xl font-black leading-none">{streak} <span className="text-xl">Días</span></h2>
-            <p className="text-slate-400 text-xs mt-2 italic">Sin gritos. ¡Eres un héroe!</p>
-          </div>
-          <Activity className="w-16 h-16 text-white/10 absolute -right-2 -bottom-2" />
+    <div className="space-y-8 animate-in fade-in duration-700 pb-20">
+      <header className="flex justify-between items-start pt-4">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900">Hola, {userData?.first_name || 'Hijo'}.</h1>
+          <p className="text-slate-500 text-sm italic font-medium">"Si la vida te da limones, haz limonada."</p>
         </div>
-      </Card>
+        <Button onClick={() => signOut(auth)} variant="ghost" className="w-auto px-2"><LogOut size={20}/></Button>
+      </header>
 
-      {/* GRID DE HERRAMIENTAS */}
-      <div className="grid grid-cols-2 gap-4">
-        <ToolCard title="Botón SOS" icon={<Wind />} color="text-orange-500" desc="Interceptor 30s" onClick={() => setView('sos')} />
-        <ToolCard title="Scripts" icon={<MessageCircle />} color="text-blue-500" desc="¿Qué decir hoy?" />
-        <ToolCard title="Zonas Rojas" icon={<Map />} color="text-red-500" desc="Mapa prevención" />
-        <ToolCard title="Bitácora" icon={<CheckCircle2 />} color="text-green-500" desc="Cierra el ciclo" onClick={() => setView('diary')} />
+      {/* RACHA */}
+      <div className="bg-slate-900 rounded-[40px] p-8 text-white relative overflow-hidden shadow-2xl">
+        <Activity className="absolute -right-4 -bottom-4 w-32 h-32 text-white/5 rotate-12" />
+        <div className="relative z-10">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400 mb-2">Días de Autoridad Serena</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-6xl font-black tracking-tighter">{calculateStreak()}</span>
+            <span className="text-xl font-bold text-slate-400">Días</span>
+          </div>
+          <p className="mt-4 text-xs italic opacity-70">Los resultados dependen de tu reacción ante los demás.</p>
+        </div>
       </div>
 
-      {/* ADICIONALES PREMIUM GATED */}
+      {/* BOTÓN SOS (EL MÁS GRANDE) */}
       <section className="space-y-4">
-        <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 border-b pb-2">Herramientas Avanzadas</h3>
-        <div className="space-y-3">
-          <PremiumTool title="Protocolo 18:00 (Hora Crítica)" icon={<Clock />} isPremium={esPremium} />
-          <PremiumTool title="Silencio Sensorial" icon={<Eye />} isPremium={esPremium} />
-          <PremiumTool title="Primeros Auxilios Post-Grito" icon={<Heart />} isPremium={esPremium} />
-        </div>
+         <Button onClick={() => setView('sos')} variant="red" className="h-28 text-xl shadow-2xl shadow-red-200">
+           <Zap className="mr-3 fill-white" /> ¡AUXILIO! Voy a Gritar
+         </Button>
+         <p className="text-[10px] text-center font-black text-slate-400 uppercase tracking-widest">Uso inmediato ante pérdida de control</p>
       </section>
 
-      {/* TARJETA PACK PREMIUM (Solo si no es premium) */}
-      {!esPremium && (
-        <Card className="bg-orange-600 text-white p-8 text-center shadow-2xl border-0 transform rotate-1">
-          <Zap className="mx-auto mb-4 w-10 h-10 fill-white" />
-          <h4 className="text-xl font-black mb-2 uppercase">Pack Premium Bloqueado</h4>
-          <p className="text-sm opacity-90 mb-6">Necesitas el Pack Premium para desbloquear el Plan Anti-Recaída y las herramientas avanzadas.</p>
-          <Button variant="outline" className="bg-white text-orange-600 border-0">MEJORAR MI ACCESO POR $7</Button>
-        </Card>
-      )}
+      {/* GRID HERRAMIENTAS */}
+      <div className="grid grid-cols-1 gap-4">
+        <ToolCard title="1. Mapa de Zonas Rojas" desc="Identifica el fuego antes del incendio" icon={<Map/>} step="Prevención" onClick={() => setView('mapa')} />
+        <ToolCard title="3. Scripts de Mando" desc="La fórmula técnica para que te escuchen" icon={<MessageCircle/>} step="Acción" onClick={() => setView('scripts')} />
+        <ToolCard title="4. Diario de Redención" desc="Cierra el ciclo y suelta la culpa" icon={<CheckCircle2/>} step="Cierre" onClick={() => setView('diario')} />
+      </div>
 
-      <Button onClick={handleLogout} variant="ghost" className="mt-12">
-        <LogOut className="mr-2 w-4 h-4" /> Cerrar Sesión
-      </Button>
+      {/* SECCIÓN PREMIUM */}
+      <section className="pt-8 border-t border-slate-100">
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">Herramientas Avanzadas</h3>
+        <div className="space-y-3 opacity-60">
+           <Card className="p-4 flex items-center justify-between grayscale">
+              <div className="flex items-center gap-3">
+                <Clock className="text-slate-400" size={18}/>
+                <span className="text-sm font-bold">Protocolo 18:00 (Hora Crítica)</span>
+              </div>
+              <Lock size={14}/>
+           </Card>
+           {!esPremium && (
+             <Button variant="orange" className="mt-4 shadow-orange-100 shadow-xl">Obtener Pack Premium - $7</Button>
+           )}
+        </div>
+      </section>
     </div>
   );
 };
 
-// --- SUB-COMPONENTES AUXILIARES ---
-const ToolCard = ({ title, icon, color, desc, onClick }) => (
-  <Card onClick={onClick} className="p-5 flex flex-col justify-between h-32">
-    <div className={`${color} bg-slate-50 w-10 h-10 rounded-lg flex items-center justify-center`}>
-      {React.cloneElement(icon, { size: 20 })}
+const ToolCard = ({ title, desc, icon, step, onClick }: any) => (
+  <Card onClick={onClick} className="p-6 flex items-center gap-6 group">
+    <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-orange-500 group-hover:text-white transition-all">
+      {React.cloneElement(icon, { size: 24 })}
     </div>
-    <div>
-      <h4 className="font-bold text-slate-900 text-sm leading-tight">{title}</h4>
-      <p className="text-[10px] text-slate-400 uppercase font-black tracking-tighter">{desc}</p>
+    <div className="flex-1">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-slate-100 rounded text-slate-500">{step}</span>
+      </div>
+      <h4 className="font-bold text-slate-900 text-sm">{title}</h4>
+      <p className="text-[10px] text-slate-400 italic font-medium">{desc}</p>
     </div>
+    <ArrowRight size={16} className="text-slate-200 group-hover:text-orange-500 transition-colors" />
   </Card>
 );
 
-const PremiumTool = ({ title, icon, isPremium }) => (
-  <Card className={`p-4 flex items-center justify-between ${!isPremium ? 'opacity-60 bg-slate-50 grayscale' : ''}`}>
-    <div className="flex items-center gap-3">
-      <div className="text-slate-400">{icon}</div>
-      <span className="font-bold text-slate-700 text-sm">{title}</span>
-    </div>
-    {!isPremium ? <Lock size={16} className="text-slate-300" /> : <ChevronRight size={16} className="text-orange-500" />}
-  </Card>
-);
+// --- APP COMPONENT ---
+export default function App() {
+  const [user, setUser] = useState<any>(null);
+  const [userData, setUserData] = useState<any>(null);
+  const [view, setView] = useState('home');
+  const [loading, setLoading] = useState(true);
 
-export default InternalDashboard;
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        setUser(fbUser);
+        const docSnap = await getDoc(doc(db, "users", fbUser.email!));
+        if (docSnap.exists()) setUserData(docSnap.data());
+      }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  if (loading) return <div className="h-screen flex items-center justify-center bg-white italic font-bold animate-pulse">Cargando el Manual de la Paciencia...</div>;
+  if (!user) return <div className="h-screen flex items-center justify-center">Por favor, inicia sesión.</div>;
+
+  return (
+    <div className="min-h-screen bg-white font-sans text-slate-950 px-6 max-w-lg mx-auto overflow-x-hidden">
+      {view !== 'home' && (
+        <button onClick={() => setView('home')} className="pt-8 text-slate-400 hover:text-slate-900 flex items-center gap-1 font-bold text-xs uppercase tracking-widest transition-all">
+          <X size={14}/> Cerrar Herramienta
+        </button>
+      )}
+      
+      <main className="pt-4">
+        {view === 'home' && <Dashboard userData={userData} setUserData={setUserData} setView={setView} />}
+        {view === 'mapa' && <MapaTool userData={userData} updateUserData={setUserData} />}
+        {view === 'sos' && <SOSTool />}
+        {view === 'scripts' && <ScriptsTool />}
+        {view === 'diario' && <DiarioTool userData={userData} updateUserData={setUserData} />}
+      </main>
+    </div>
+  );
+}
