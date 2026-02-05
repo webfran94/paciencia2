@@ -10,22 +10,22 @@ import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 
 // --- ESTILOS DINÁMICOS SEGÚN NIVEL DE PACIENCIA ---
-const getPatienceColor = (level: number) => {
+const getPatienceColor = (level) => {
   if (level <= 3) return 'from-emerald-50 to-teal-50 border-emerald-100 text-emerald-700';
   if (level <= 7) return 'from-orange-50 to-amber-50 border-orange-100 text-orange-700';
   return 'from-red-50 to-rose-50 border-red-100 text-red-700 animate-pulse';
 };
 
 // --- COMPONENTES UI BASE ---
-const Card = ({ children, className = "", onClick }: any) => (
+const Card = ({ children, className = "", onClick }) => (
   <div onClick={onClick} className={`bg-white rounded-3xl border shadow-sm transition-all duration-300 ${onClick ? 'cursor-pointer hover:shadow-xl hover:-translate-y-1' : ''} ${className}`}>
     {children}
   </div>
 );
 
-const Button = ({ children, variant = "primary", className = "", ...props }: any) => {
+const Button = ({ children, variant = "primary", className = "", ...props }) => {
   const base = "flex items-center justify-center rounded-2xl font-bold transition-all px-6 py-4 w-full text-sm uppercase tracking-widest";
-  const variants: any = {
+  const variants = {
     primary: "bg-slate-900 text-white hover:bg-slate-800",
     orange: "bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:shadow-lg shadow-orange-200",
     red: "bg-gradient-to-r from-red-600 to-rose-600 text-white animate-bounce",
@@ -36,15 +36,15 @@ const Button = ({ children, variant = "primary", className = "", ...props }: any
 };
 
 // --- 1. HERRAMIENTA: MAPA DE ZONAS ROJAS ---
-const MapaTool = ({ userData, updateUserData }: any) => {
+const MapaTool = ({ userData, updateUserData }) => {
   const [level, setLevel] = useState(userData?.patience_level || 5);
   const [triggers, setTriggers] = useState(userData?.selectedTriggers || []);
   const [customTrigger, setCustomTrigger] = useState('');
 
   const commonTriggers = ["Ruido excesivo", "Desobediencia repetida", "Cansancio acumulado", "Desorden en casa", "Prisa por salir"];
 
-  const toggleTrigger = (t: string) => {
-    const next = triggers.includes(t) ? triggers.filter((x: any) => x !== t) : [...triggers, t];
+  const toggleTrigger = (t) => {
+    const next = triggers.includes(t) ? triggers.filter((x) => x !== t) : [...triggers, t];
     setTriggers(next);
   };
 
@@ -130,7 +130,7 @@ const SOSTool = () => {
 // --- 3. HERRAMIENTA: SCRIPTS DE MANDO ---
 const ScriptsTool = () => {
   const [cat, setCat] = useState('dormir');
-  const data: any = {
+  const data = {
     dormir: [
       { f: "[Acción Autónoma] o [Acción con Ayuda]", s: "¿Te pones el pijama tú solo como un rayo o te ayudo yo y leemos medio cuento menos?" },
       { f: "[Juego de Traslado]", s: "¿Quieres ir a la cama saltando como rana o caminando como elefante?" }
@@ -156,7 +156,7 @@ const ScriptsTool = () => {
       </div>
       
       <div className="space-y-4">
-        {data[cat].map((item: any, i: number) => (
+        {data[cat].map((item, i) => (
           <Card key={i} className="p-6 border-l-[6px] border-orange-500">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fórmula: {item.f}</p>
             <p className="text-slate-800 font-bold italic">"{item.s}"</p>
@@ -172,16 +172,16 @@ const ScriptsTool = () => {
 };
 
 // --- 4. HERRAMIENTA: DIARIO (CIERRE Y RACHA) ---
-const DiarioTool = ({ userData, updateUserData }: any) => {
+const DiarioTool = ({ userData, updateUserData }) => {
   const [ans, setAns] = useState({ v: '', d: '', p: '' });
-  const [yelled, setYelled] = useState<boolean | null>(null);
+  const [yelled, setYelled] = useState(null);
 
   const finish = async () => {
     const today = new Date().toISOString().split('T')[0];
     const newData = { ...userData };
     
     if (yelled === true) {
-      newData.lastYelledDate = today; // Reinicia racha
+      newData.lastYelledDate = today; 
     } else if (!userData.lastYelledDate) {
       newData.lastYelledDate = today; 
     }
@@ -226,7 +226,7 @@ const DiarioTool = ({ userData, updateUserData }: any) => {
 };
 
 // --- DASHBOARD PRINCIPAL ---
-const Dashboard = ({ userData, setUserData, setView }: any) => {
+const Dashboard = ({ userData, setUserData, setView }) => {
   const esPremium = userData?.hasUpsell === 1 || userData?.status === 'comprador_premium';
   
   const calculateStreak = () => {
@@ -295,7 +295,7 @@ const Dashboard = ({ userData, setUserData, setView }: any) => {
   );
 };
 
-const ToolCard = ({ title, desc, icon, step, onClick }: any) => (
+const ToolCard = ({ title, desc, icon, step, onClick }) => (
   <Card onClick={onClick} className="p-6 flex items-center gap-6 group">
     <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-orange-500 group-hover:text-white transition-all">
       {React.cloneElement(icon, { size: 24 })}
@@ -313,8 +313,8 @@ const ToolCard = ({ title, desc, icon, step, onClick }: any) => (
 
 // --- APP COMPONENT ---
 export default function App() {
-  const [user, setUser] = useState<any>(null);
-  const [userData, setUserData] = useState<any>(null);
+  const [user, setUser] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [view, setView] = useState('home');
   const [loading, setLoading] = useState(true);
 
@@ -322,7 +322,7 @@ export default function App() {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         setUser(fbUser);
-        const docSnap = await getDoc(doc(db, "users", fbUser.email!));
+        const docSnap = await getDoc(doc(db, "users", fbUser.email));
         if (docSnap.exists()) setUserData(docSnap.data());
       }
       setLoading(false);
@@ -351,4 +351,3 @@ export default function App() {
     </div>
   );
 }
-
