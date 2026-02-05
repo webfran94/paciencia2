@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { auth, db } from './firebase'; 
 import { signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 // --- ESTILOS DINÁMICOS SEGÚN NIVEL DE PACIENCIA ---
 const getPatienceColor = (level) => {
@@ -108,7 +108,7 @@ const SOSTool = () => {
 
   return (
     <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 space-y-10 animate-in zoom-in duration-300">
-      <div className="w-72 h-72 rounded-full bg-slate-900 border-[12px] border-orange-500 flex flex-col items-center justify-center text-center p-8 shadow-2xl relative">
+      <div className="w-72 h-72 rounded-full bg-slate-900 border-[12px] border-orange-500 flex flex-col items-center justify-center text-center p-8 shadow-2xl relative border-solid">
         <div className="absolute -top-4 bg-orange-500 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase">Freno de Emergencia</div>
         <p className="text-white text-lg font-bold leading-tight">{messages[step % messages.length]}</p>
       </div>
@@ -157,14 +157,14 @@ const ScriptsTool = () => {
       
       <div className="space-y-4">
         {data[cat].map((item, i) => (
-          <Card key={i} className="p-6 border-l-[6px] border-orange-500">
+          <Card key={i} className="p-6 border-l-[6px] border-orange-500 border-solid">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fórmula: {item.f}</p>
             <p className="text-slate-800 font-bold italic">"{item.s}"</p>
           </Card>
         ))}
       </div>
       
-      <div className="bg-orange-50 p-6 rounded-[32px] border border-orange-100">
+      <div className="bg-orange-50 p-6 rounded-[32px] border border-orange-100 border-solid">
         <p className="text-xs text-orange-700 font-medium italic">"Recuerda, hijo: el secreto no es el guion, es cumplir lo que dices con una sonrisa y firmeza."</p>
       </div>
     </div>
@@ -202,11 +202,11 @@ const DiarioTool = ({ userData, updateUserData }) => {
       <Card className="p-8 space-y-6">
         <p className="font-bold text-center">¿Hoy lograste ser el ancla o hubo tormenta?</p>
         <div className="grid grid-cols-2 gap-4">
-          <button onClick={() => setYelled(false)} className={`p-6 rounded-3xl border-2 transition-all ${yelled === false ? 'border-emerald-500 bg-emerald-50' : 'border-slate-50'}`}>
+          <button onClick={() => setYelled(false)} className={`p-6 rounded-3xl border-2 border-solid transition-all ${yelled === false ? 'border-emerald-500 bg-emerald-50' : 'border-slate-50'}`}>
             <Sun className="mx-auto mb-2 text-emerald-500" />
             <span className="text-[10px] font-black uppercase">Victoria</span>
           </button>
-          <button onClick={() => setYelled(true)} className={`p-6 rounded-3xl border-2 transition-all ${yelled === true ? 'border-red-500 bg-red-50' : 'border-slate-50'}`}>
+          <button onClick={() => setYelled(true)} className={`p-6 rounded-3xl border-2 border-solid transition-all ${yelled === true ? 'border-red-500 bg-red-50' : 'border-slate-50'}`}>
             <Flame className="mx-auto mb-2 text-red-500" />
             <span className="text-[10px] font-black uppercase">Recaída</span>
           </button>
@@ -276,7 +276,7 @@ const Dashboard = ({ userData, setUserData, setView }) => {
       </div>
 
       {/* SECCIÓN PREMIUM */}
-      <section className="pt-8 border-t border-slate-100">
+      <section className="pt-8 border-t border-slate-100 border-solid">
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">Herramientas Avanzadas</h3>
         <div className="space-y-3 opacity-60">
            <Card className="p-4 flex items-center justify-between grayscale">
@@ -336,7 +336,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white font-sans text-slate-950 px-6 max-w-lg mx-auto overflow-x-hidden">
       {view !== 'home' && (
-        <button onClick={() => setView('home')} className="pt-8 text-slate-400 hover:text-slate-900 flex items-center gap-1 font-bold text-xs uppercase tracking-widest transition-all">
+        <button onClick={() => setView('home')} className="pt-8 text-slate-400 hover:text-slate-900 flex items-center gap-1 font-bold text-xs uppercase tracking-widest transition-all bg-transparent border-none cursor-pointer">
           <X size={14}/> Cerrar Herramienta
         </button>
       )}
