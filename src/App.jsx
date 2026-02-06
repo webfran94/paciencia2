@@ -9,7 +9,6 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Home as HomeIcon, LogOut, X, Shield } from 'lucide-react';
 
-// Tus imports de pages
 import Home from './pages/Home';
 import Mapa from './pages/Mapa';
 import SOS from './pages/SOS';
@@ -136,7 +135,7 @@ const LoginScreen = () => {
     } catch (err) {
       if (err.code === 'auth/user-not-found') {
         if (password.length < 6) {
-          setError('Contraseña debe tener 6 caracteres.');
+          setError('Contraseña debe tener mínimo 6 caracteres.');
           setLoading(false);
           return;
         }
@@ -147,6 +146,8 @@ const LoginScreen = () => {
           createdAt: new Date().toISOString()
         }, { merge: true });
       } else if (err.code === 'auth/wrong-password') {
+        setError('Contraseña incorrecta.');
+      } else if (err.code === 'auth/invalid-credential') {
         setError('Contraseña incorrecta.');
       } else {
         setError(err.message);
@@ -177,11 +178,13 @@ const LoginScreen = () => {
         ) : (
           <form onSubmit={handleAuth} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Ingresa tu contraseña de acceso</label>
-              <input type="password" required className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500" onChange={e => setPassword(e.target.value)} />
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-1">
+                Crea tu contraseña de acceso (mín. 6 caracteres)
+              </label>
+              <input type="password" placeholder="••••••" required className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500" onChange={e => setPassword(e.target.value)} />
             </div>
             <button type="submit" className="w-full py-4 bg-orange-600 text-white rounded-xl font-bold uppercase tracking-widest shadow-xl" disabled={loading}>
-              {loading ? 'Entrando...' : 'Ingresar'}
+              Activar Acceso
             </button>
             <button type="button" onClick={() => setStep('email')} className="w-full text-center text-xs font-bold text-slate-400 uppercase tracking-widest">← Cambiar Email</button>
           </form>
