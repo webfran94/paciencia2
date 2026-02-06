@@ -10,14 +10,13 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Home as HomeIcon, LogOut, X, Shield, Activity } from 'lucide-react';
 
-// Importación de Páginas
+// Importación de tus páginas (Asegúrate de que existan en src/pages/)
 import Home from './pages/Home';
 import Mapa from './pages/Mapa';
 import SOS from './pages/SOS';
 import Scripts from './pages/Scripts';
 import Diario from './pages/Diario';
 import Auxilios from './pages/Auxilios';
-// Premium
 import Consecuencias from './pages/Consecuencias';
 import Rutinas from './pages/Rutinas';
 import Escudo from './pages/Escudo';
@@ -38,14 +37,14 @@ export default function App() {
       if (fbUser) {
         setUser(fbUser);
         try {
-          // CONSULTA SEGURA: Solo después del login y usando el email del usuario logueado
+          // REGLA DE ORO: La consulta a Firestore solo ocurre AQUÍ, ya logueado
           const userDocRef = doc(db, "users", fbUser.email.toLowerCase());
           const docSnap = await getDoc(userDocRef);
           if (docSnap.exists()) {
             setUserData(docSnap.data());
           }
         } catch (e) {
-          console.error("Error al cargar datos del usuario:", e);
+          console.error("Error de permisos en Firestore:", e);
         }
       } else {
         setUser(null);
@@ -56,25 +55,24 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black italic text-slate-400 animate-pulse">ABRIENDO EL MANUAL...</div>;
-  
+  if (loading) return <div className="h-screen flex items-center justify-center font-bold text-slate-400 animate-pulse">ABRIENDO EL MANUAL...</div>;
   if (!user) return <LoginScreen />;
 
   const esAlerta = userData?.patience_level > 7;
 
   return (
-    <div className={`min-h-screen transition-all duration-700 ${esAlerta ? 'bg-red-600/10' : 'bg-white'}`}>
-      <nav className="h-20 border-b flex items-center justify-between px-6 max-w-xl mx-auto bg-white/80 backdrop-blur-md sticky top-0 z-50">
+    <div className={`min-h-screen transition-all duration-700 ${esAlerta ? 'bg-red-50' : 'bg-white'}`}>
+      <nav className="h-20 border-b flex items-center justify-between px-6 max-w-xl mx-auto sticky top-0 bg-white/80 backdrop-blur-md z-50">
         <div onClick={() => setView('home')} className="flex items-center gap-3 cursor-pointer">
-          <div className="bg-slate-900 text-white p-2 rounded-xl shadow-lg"><HomeIcon size={20}/></div>
+          <div className="bg-slate-900 text-white p-2 rounded-xl"><HomeIcon size={20}/></div>
           <span className="font-black text-sm uppercase tracking-tighter">Manual Paciencia</span>
         </div>
-        <button onClick={() => signOut(auth)} className="text-slate-300 hover:text-red-500 transition-colors"><LogOut size={24}/></button>
+        <button onClick={() => signOut(auth)} className="text-slate-300 hover:text-red-500"><LogOut size={24}/></button>
       </nav>
 
       <main className="p-6 max-w-xl mx-auto">
         {view !== 'home' && (
-          <button onClick={() => setView('home')} className="mb-8 flex items-center text-slate-400 font-black text-xs uppercase hover:text-slate-900 bg-transparent border-none cursor-pointer">
+          <button onClick={() => setView('home')} className="mb-8 flex items-center text-slate-400 font-black text-xs uppercase bg-transparent border-none cursor-pointer">
             <X size={16} className="mr-2"/> Cerrar Herramienta
           </button>
         )}
@@ -106,7 +104,7 @@ const LoginScreen = () => {
   const [step, setStep] = useState('email'); 
   const [isNewUser, setIsNewUser] = useState(false);
 
-  // PASO 1: Verificar si el email existe en Firebase Auth
+  // PASO 1: Verificar email solo en Firebase Auth
   const verifyEmail = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -114,26 +112,23 @@ const LoginScreen = () => {
     const cleanEmail = email.trim().toLowerCase();
     
     try {
-      // Usamos el método sugerido por el desarrollador
+      // Esta función no necesita permisos de base de datos
       const methods = await fetchSignInMethodsForEmail(auth, cleanEmail);
       
       if (methods.length === 0) {
-        // Email no registrado en Auth → Es un usuario nuevo que debe activar
-        setIsNewUser(true);
+        setIsNewUser(true); // NO existe -> Pedir "Crea tu contraseña"
       } else {
-        // Email ya tiene contraseña → Usuario existente
-        setIsNewUser(false);
+        setIsNewUser(false); // SI existe -> Pedir "Ingresa tu contraseña"
       }
       setStep('password');
     } catch (err) {
-      setError('Error al verificar el correo. Intenta de nuevo.');
-      console.error(err);
+      setError('Error al verificar. Revisa tu conexión.');
     } finally {
       setLoading(false);
     }
   };
 
-  // PASO 2: Login o Registro
+  // PASO 2: Login o Registro Real
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -142,30 +137,25 @@ const LoginScreen = () => {
 
     try {
       if (isNewUser) {
-        // REGISTRO (Primer ingreso)
-        if (password.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
-        
+        // REGISTRO
+        if (password.length < 6) throw new Error('Mínimo 6 caracteres.');
         await createUserWithEmailAndPassword(auth, cleanEmail, password);
         
-        // Creamos el documento inicial en Firestore (ahora que ya estamos logueados)
-        const userDocRef = doc(db, "users", cleanEmail);
-        await setDoc(userDocRef, { 
+        // Crear documento inicial ahora que SÍ tenemos permiso
+        await setDoc(doc(db, "users", cleanEmail), { 
           email: cleanEmail,
           authLinked: true,
           status: 'comprador_normal',
-          createdAt: new Date().toISOString()
+          patience_level: 5
         }, { merge: true });
 
       } else {
-        // LOGIN (Usuario ya existente)
+        // LOGIN
         await signInWithEmailAndPassword(auth, cleanEmail, password);
       }
     } catch (err) {
-      if (err.code === 'auth/wrong-password') {
-        setError('Contraseña incorrecta.');
-      } else {
-        setError(err.message);
-      }
+      if (err.code === 'auth/wrong-password') setError('Contraseña incorrecta.');
+      else setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -183,16 +173,9 @@ const LoginScreen = () => {
           <form onSubmit={verifyEmail} className="space-y-4">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Email de Compra</label>
-              <input 
-                type="email" 
-                placeholder="ejemplo@correo.com" 
-                className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500 transition-all" 
-                required 
-                value={email}
-                onChange={e => setEmail(e.target.value)} 
-              />
+              <input type="email" placeholder="ejemplo@correo.com" className="w-full p-4 rounded-xl border text-sm" required onChange={e => setEmail(e.target.value)} />
             </div>
-            <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-widest disabled:opacity-50" disabled={loading}>
+            <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-2xl font-bold uppercase tracking-widest shadow-xl" disabled={loading}>
               {loading ? 'Verificando...' : 'Continuar'}
             </button>
           </form>
@@ -202,22 +185,12 @@ const LoginScreen = () => {
                <label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">
                  {isNewUser ? 'Crea tu nueva contraseña (mín. 6 caracteres)' : 'Ingresa tu contraseña'}
                </label>
-               <input 
-                type="password" 
-                required 
-                className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500 transition-all" 
-                value={password}
-                onChange={e => setPassword(e.target.value)} 
-               />
+               <input type="password" required className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500" onChange={e => setPassword(e.target.value)} />
             </div>
-            <button type="submit" className="w-full py-5 bg-orange-600 text-white rounded-xl font-bold uppercase tracking-widest disabled:opacity-50" disabled={loading}>
+            <button type="submit" className="w-full py-5 bg-orange-600 text-white rounded-2xl font-bold uppercase tracking-widest shadow-xl disabled:opacity-50" disabled={loading}>
               {isNewUser ? 'Activar Acceso' : 'Ingresar al Manual'}
             </button>
-            <button 
-              type="button"
-              onClick={() => setStep('email')} 
-              className="w-full text-center text-xs font-bold text-slate-400 uppercase tracking-widest bg-transparent border-none cursor-pointer"
-            >
+            <button type="button" onClick={() => setStep('email')} className="w-full text-center text-xs font-bold text-slate-400 uppercase tracking-widest bg-transparent border-none cursor-pointer">
               ← Volver
             </button>
           </form>
