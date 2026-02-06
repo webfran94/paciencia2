@@ -1,27 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from './firebase'; 
 import { onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { Home as HomeIcon, LogOut, X, Shield, Activity } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { Home as HomeIcon, LogOut, X, Shield } from 'lucide-react';
 
-// Importación de Páginas
+// Importación de tus nuevas herramientas
 import Home from './pages/Home';
 import Mapa from './pages/Mapa';
 import SOS from './pages/SOS';
 import Scripts from './pages/Scripts';
 import Diario from './pages/Diario';
-import Auxilios from './pages/Auxilios';
-// Premium
-import Consecuencias from './pages/Consecuencias';
-import Rutinas from './pages/Rutinas';
-import Escudo from './pages/Escudo';
-import PazDigital from './pages/PazDigital';
-import ReparacionP from './pages/ReparacionP';
-import Audios from './pages/Audios';
 import Silencio from './pages/Silencio';
 import Protocolo from './pages/Protocolo';
+import Auxilios from './pages/Auxilios';
 
-export default function App() {
+const App = () => {
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
   const [view, setView] = useState('home');
@@ -42,7 +35,7 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black italic text-slate-400 animate-pulse">ABRIENDO EL MANUAL...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black italic uppercase text-slate-400">Abriendo el Manual...</div>;
   if (!user) return <LoginScreen />;
 
   const esAlerta = userData?.patience_level > 7;
@@ -69,22 +62,15 @@ export default function App() {
         {view === 'sos' && <SOS setView={setView} />}
         {view === 'scripts' && <Scripts setView={setView} />}
         {view === 'diario' && <Diario userData={userData} setUserData={setUserData} setView={setView} />}
-        {view === 'auxilios' && <Auxilios setView={setView} />}
-        
-        {/* Vistas Premium */}
-        {view === 'consecuencias' && <Consecuencias setView={setView} />}
-        {view === 'rutinas' && <Rutinas setView={setView} />}
-        {view === 'escudo' && <Escudo setView={setView} />}
-        {view === 'paz-digital' && <PazDigital setView={setView} />}
-        {view === 'reparacion-p' && <ReparacionP setView={setView} />}
-        {view === 'audios' && <Audios setView={setView} />}
         {view === 'silencio' && <Silencio setView={setView} />}
         {view === 'protocolo' && <Protocolo setView={setView} />}
+        {view === 'auxilios' && <Auxilios setView={setView} />}
       </main>
     </div>
   );
-}
+};
 
+// Pantalla de Login Reparada
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -96,21 +82,19 @@ const LoginScreen = () => {
   const verifyEmail = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
     try {
       const docSnap = await getDoc(doc(db, "users", email.trim().toLowerCase()));
       if (docSnap.exists()) {
         setIsNewUser(!docSnap.data().authLinked);
         setStep('password');
-      } else { setError('No encontramos ninguna compra con este correo.'); }
+      } else { setError('No encontramos tu compra.'); }
     } catch (err) { setError('Error de conexión.'); }
     finally { setLoading(false); }
   };
 
-  const handleAuth = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
     try {
       if (isNewUser) {
         if (password.length < 6) throw new Error('Mínimo 6 caracteres.');
@@ -119,7 +103,7 @@ const LoginScreen = () => {
       } else {
         await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
       }
-    } catch (err) { setError(err.message || 'Contraseña incorrecta.'); }
+    } catch (err) { setError(err.message || 'Error de acceso.'); }
     finally { setLoading(false); }
   };
 
@@ -132,27 +116,22 @@ const LoginScreen = () => {
         
         {step === 'email' ? (
           <form onSubmit={verifyEmail} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Email de compra</label>
-              <input type="email" placeholder="ejemplo@correo.com" className="w-full p-4 rounded-2xl border text-sm outline-none focus:border-orange-500 transition-all" required onChange={e => setEmail(e.target.value)} />
-            </div>
-            <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest disabled:opacity-50" disabled={loading}>{loading ? 'Verificando...' : 'Continuar'}</button>
+            <input type="email" placeholder="Email de compra" className="w-full p-4 rounded-xl border text-sm" required onChange={e => setEmail(e.target.value)} />
+            <button type="submit" className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-widest disabled:opacity-50" disabled={loading}>Continuar</button>
           </form>
         ) : (
-          <form onSubmit={handleAuth} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-               <label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">
-                 {isNewUser ? 'Crea tu nueva contraseña (mín. 6 caracteres)' : 'Ingresa tu contraseña'}
-               </label>
-               <input type="password" required className="w-full p-4 rounded-2xl border text-sm outline-none focus:border-orange-500 transition-all" onChange={e => setPassword(e.target.value)} />
+               <label className="text-[10px] font-black uppercase text-slate-400 ml-1">{isNewUser ? 'Crea tu nueva contraseña' : 'Ingresa tu contraseña'}</label>
+               <input type="password" required className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500" onChange={e => setPassword(e.target.value)} />
             </div>
-            <button type="submit" className="w-full py-5 bg-orange-600 text-white rounded-2xl font-black uppercase tracking-widest disabled:opacity-50" disabled={loading}>
-              {loading ? 'Procesando...' : (isNewUser ? 'Activar Acceso' : 'Entrar al Manual')}
-            </button>
-            <button onClick={() => setStep('email')} className="w-full text-center text-xs font-bold text-slate-400 uppercase tracking-widest">← Volver</button>
+            <button type="submit" className="w-full py-4 bg-orange-600 text-white rounded-xl font-bold uppercase tracking-widest disabled:opacity-50" disabled={loading}>{isNewUser ? 'Activar Acceso' : 'Ingresar'}</button>
+            <button onClick={() => setStep('email')} className="w-full text-center text-xs text-slate-400 font-bold mt-4">← Volver</button>
           </form>
         )}
       </div>
     </div>
   );
 };
+
+export default App;
