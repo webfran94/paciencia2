@@ -5,12 +5,12 @@ import {
   signOut, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
-  fetchSignInMethodsForEmail // Importado para verificar email sin romper reglas
+  fetchSignInMethodsForEmail 
 } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Home as HomeIcon, LogOut, X, Shield, Activity } from 'lucide-react';
 
-// Importación de Páginas
+// Importación de Páginas (Asegúrate de que existan en src/pages/)
 import Home from './pages/Home';
 import Mapa from './pages/Mapa';
 import SOS from './pages/SOS';
@@ -35,21 +35,16 @@ export default function App() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
-        // REGLA DE ORO: La consulta se hace DESPUÉS del login y usando fbUser.email
-        const emailClean = fbUser.email.toLowerCase();
+        setUser(fbUser);
         try {
-          const docSnap = await getDoc(doc(db, "users", emailClean));
+          // CONSULTA CORREGIDA: Siempre con user.email después del login
+          const userDocRef = doc(db, "users", fbUser.email.toLowerCase());
+          const docSnap = await getDoc(userDocRef);
           if (docSnap.exists()) {
             setUserData(docSnap.data());
-            setUser(fbUser);
-          } else {
-            // Si el usuario se loguea pero no existe su documento de compra
-            await signOut(auth);
-            alert("Acceso denegado: Este correo no tiene un registro de compra.");
           }
         } catch (e) {
-          console.error("Error de permisos:", e);
-          await signOut(auth);
+          console.error("Error al cargar datos de Firestore:", e);
         }
       } else {
         setUser(null);
@@ -60,7 +55,12 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-bold text-slate-400 animate-pulse">VERIFICANDO ACCESO...</div>;
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center font-black italic text-slate-400 animate-pulse uppercase tracking-widest">
+      Abriendo el Manual...
+    </div>
+  );
+
   if (!user) return <LoginScreen />;
 
   const esAlerta = userData?.patience_level > 7;
@@ -69,7 +69,7 @@ export default function App() {
     <div className={`min-h-screen transition-all duration-700 ${esAlerta ? 'bg-red-600/10' : 'bg-white'}`}>
       <nav className="h-20 border-b flex items-center justify-between px-6 max-w-xl mx-auto bg-white/80 backdrop-blur-md sticky top-0 z-50">
         <div onClick={() => setView('home')} className="flex items-center gap-3 cursor-pointer">
-          <div className="bg-slate-900 text-white p-2 rounded-xl"><HomeIcon size={20}/></div>
+          <div className="bg-slate-900 text-white p-2 rounded-xl shadow-lg"><HomeIcon size={20}/></div>
           <span className="font-black text-sm uppercase tracking-tighter">Manual Paciencia</span>
         </div>
         <button onClick={() => signOut(auth)} className="text-slate-300 hover:text-red-500 transition-colors"><LogOut size={24}/></button>
@@ -88,6 +88,8 @@ export default function App() {
         {view === 'scripts' && <Scripts setView={setView} />}
         {view === 'diario' && <Diario userData={userData} setUserData={setUserData} setView={setView} />}
         {view === 'auxilios' && <Auxilios setView={setView} />}
+        
+        {/* Vistas Premium (Axel) */}
         {view === 'consecuencias' && <Consecuencias setView={setView} />}
         {view === 'rutinas' && <Rutinas setView={setView} />}
         {view === 'escudo' && <Escudo setView={setView} />}
@@ -109,83 +111,112 @@ const LoginScreen = () => {
   const [step, setStep] = useState('email'); 
   const [isNewUser, setIsNewUser] = useState(false);
 
-  // NUEVA LÓGICA: Verificación inicial sugerida por el desarrollador
-  const handleEmailSubmit = async (e) => {
+  // 1. Lógica corregida según el Dev: fetchSignInMethodsForEmail
+  const verifyEmail = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     const emailClean = email.trim().toLowerCase();
+    
     try {
-      // Verificamos métodos de acceso en Auth, NO en Firestore (para no violar las reglas)
+      // Verificamos métodos de acceso, no Firestore directamente
       const methods = await fetchSignInMethodsForEmail(auth, emailClean);
       
       if (methods.length === 0) {
-        // Email nuevo → pedir crear contraseña
+        // Email NUEVO o no registrado en Auth
         setIsNewUser(true);
       } else {
-        // Email existe → pedir login
+        // Email ya existe en Firebase Auth
         setIsNewUser(false);
       }
       setStep('password');
-    } catch (err) { 
+    } catch (err) {
       console.error(err);
-      setError('Hubo un error al verificar el correo. Intenta de nuevo.'); 
-    } finally { setLoading(false); }
+      setError('Error al verificar el correo. Inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // 2. Lógica de autenticación respetando el estado de isNewUser
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     const emailClean = email.trim().toLowerCase();
+
     try {
       if (isNewUser) {
+        // CREAR CUENTA
         if (password.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
         const cred = await createUserWithEmailAndPassword(auth, emailClean, password);
         
-        // Intentamos vincular el UID. Esto solo funcionará si el correo ya existe en la lista de compradores.
-        try {
-          await updateDoc(doc(db, "users", emailClean), { uid: cred.user.uid, authLinked: true });
-        } catch (e) {
-          // Si falla el update es porque no es comprador. Borramos el usuario creado para limpiar.
-          await cred.user.delete();
-          throw new Error('Este correo no tiene una compra registrada.');
-        }
+        // Vincular en Firestore tras el registro exitoso
+        await updateDoc(doc(db, "users", emailClean), { 
+          uid: cred.user.uid, 
+          authLinked: true 
+        });
       } else {
+        // LOGIN NORMAL
         await signInWithEmailAndPassword(auth, emailClean, password);
       }
-    } catch (err) { 
-      setError(err.message.includes('auth/') ? 'Contraseña incorrecta.' : err.message); 
-    } finally { setLoading(false); }
+    } catch (err) {
+      console.error(err);
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setError('Contraseña incorrecta.');
+      } else if (err.code === 'auth/email-already-in-use') {
+        setError('Este correo ya está registrado. Intenta iniciar sesión.');
+      } else {
+        setError(err.message || 'Ocurrió un error al ingresar.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
       <div className="w-full max-w-md bg-white p-10 rounded-[3rem] border shadow-sm">
         <div className="flex justify-center mb-6 text-slate-900"><Shield size={48} /></div>
-        <h1 className="text-2xl font-black text-center mb-8 uppercase">Entrar al Manual</h1>
+        <h1 className="text-2xl font-black text-center mb-8 uppercase tracking-tighter">Entrar al Manual</h1>
+        
         {error && <div className="p-4 bg-red-50 text-red-600 text-xs font-bold mb-6 rounded-xl border border-red-100">{error}</div>}
         
         {step === 'email' ? (
-          <form onSubmit={handleEmailSubmit} className="space-y-4">
+          <form onSubmit={verifyEmail} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Email de Compra</label>
-              <input type="email" placeholder="ejemplo@correo.com" className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500" required onChange={e => setEmail(e.target.value)} />
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Email de Compra</label>
+              <input 
+                type="email" 
+                placeholder="ejemplo@correo.com" 
+                className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500 transition-all" 
+                required 
+                onChange={e => setEmail(e.target.value)} 
+              />
             </div>
-            <button type="submit" className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-widest" disabled={loading}>{loading ? 'Verificando...' : 'Continuar'}</button>
+            <button type="submit" className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-widest" disabled={loading}>
+              {loading ? 'Verificando...' : 'Continuar'}
+            </button>
           </form>
         ) : (
           <form onSubmit={handleAuth} className="space-y-6">
             <div className="space-y-2">
-               <label className="text-[10px] font-black uppercase text-slate-400 ml-1">
+               <label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">
                  {isNewUser ? 'Crea tu Contraseña (mín. 6 caracteres)' : 'Ingresa tu Contraseña'}
                </label>
-               <input type="password" required className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500" onChange={e => setPassword(e.target.value)} />
+               <input 
+                type="password" 
+                required 
+                className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500 transition-all" 
+                onChange={e => setPassword(e.target.value)} 
+               />
             </div>
             <button type="submit" className="w-full py-4 bg-orange-600 text-white rounded-xl font-bold uppercase tracking-widest disabled:opacity-50" disabled={loading}>
               {isNewUser ? 'Activar Acceso' : 'Ingresar'}
             </button>
-            <button onClick={() => setStep('email')} className="w-full text-center text-xs font-bold text-slate-400 mt-4 uppercase tracking-widest">← Cambiar Email</button>
+            <button onClick={() => setStep('email')} className="w-full text-center text-xs font-bold text-slate-400 mt-4 uppercase tracking-widest">
+              ← Cambiar Email
+            </button>
           </form>
         )}
       </div>
