@@ -4,14 +4,13 @@ import { onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWith
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Home as HomeIcon, LogOut, X, Shield, Activity } from 'lucide-react';
 
-// Importación de Páginas (Asegúrate de crearlos en /src/pages/)
+// Importación de herramientas desde la carpeta /pages
 import Home from './pages/Home';
 import Mapa from './pages/Mapa';
 import SOS from './pages/SOS';
 import Scripts from './pages/Scripts';
 import Diario from './pages/Diario';
 import Auxilios from './pages/Auxilios';
-// Premium
 import Consecuencias from './pages/Consecuencias';
 import Rutinas from './pages/Rutinas';
 import Escudo from './pages/Escudo';
@@ -42,7 +41,8 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black italic text-slate-400 animate-pulse uppercase tracking-widest">Abriendo el Manual...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black italic text-slate-400 animate-pulse">ABRIENDO EL MANUAL...</div>;
+  
   if (!user) return <LoginScreen />;
 
   const esAlerta = userData?.patience_level > 7;
@@ -70,8 +70,6 @@ export default function App() {
         {view === 'scripts' && <Scripts setView={setView} />}
         {view === 'diario' && <Diario userData={userData} setUserData={setUserData} setView={setView} />}
         {view === 'auxilios' && <Auxilios setView={setView} />}
-        
-        {/* Vistas Premium */}
         {view === 'consecuencias' && <Consecuencias setView={setView} />}
         {view === 'rutinas' && <Rutinas setView={setView} />}
         {view === 'escudo' && <Escudo setView={setView} />}
@@ -96,6 +94,7 @@ const LoginScreen = () => {
   const verifyEmail = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     try {
       const docSnap = await getDoc(doc(db, "users", email.trim().toLowerCase()));
       if (docSnap.exists()) {
@@ -109,6 +108,7 @@ const LoginScreen = () => {
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     try {
       if (isNewUser) {
         if (password.length < 6) throw new Error('Mínimo 6 caracteres.');
@@ -126,12 +126,11 @@ const LoginScreen = () => {
       <div className="w-full max-w-md bg-white p-10 rounded-[3rem] border shadow-sm">
         <div className="flex justify-center mb-6 text-slate-900"><Shield size={48} /></div>
         <h1 className="text-2xl font-black text-center mb-8 uppercase tracking-tighter">Entrar al Manual</h1>
-        {error && <div className="p-4 bg-red-50 text-red-600 text-xs font-bold mb-6 rounded-xl">{error}</div>}
-        
+        {error && <div className="p-4 bg-red-50 text-red-600 text-xs font-bold mb-6 rounded-xl border border-red-100">{error}</div>}
         {step === 'email' ? (
           <form onSubmit={verifyEmail} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Email de Compra</label>
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Email de Compra</label>
               <input type="email" placeholder="ejemplo@correo.com" className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500" required onChange={e => setEmail(e.target.value)} />
             </div>
             <button type="submit" className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-widest" disabled={loading}>Continuar</button>
@@ -139,7 +138,7 @@ const LoginScreen = () => {
         ) : (
           <form onSubmit={handleAuth} className="space-y-6">
             <div className="space-y-2">
-               <label className="text-[10px] font-black uppercase text-slate-400 ml-1">
+               <label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">
                  {isNewUser ? 'Crea tu Contraseña (mín. 6 caracteres)' : 'Ingresa tu Contraseña'}
                </label>
                <input type="password" required className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500" onChange={e => setPassword(e.target.value)} />
