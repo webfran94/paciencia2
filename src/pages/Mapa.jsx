@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { Plus, X, ShieldAlert } from 'lucide-react';
+import { Plus, ShieldAlert } from 'lucide-react';
 
 const Mapa = ({ userData, setUserData, setView }) => {
   const [level, setLevel] = useState(userData?.patience_level || 5);
@@ -26,38 +26,36 @@ const Mapa = ({ userData, setUserData, setView }) => {
 
   return (
     <div className="space-y-6 pb-12">
-      <div className="bg-slate-900 p-8 rounded-[3rem] text-white">
-        <h2 className="text-2xl font-black mb-2 uppercase tracking-tighter italic">1. Mapa de Zonas Rojas</h2>
+      <div className="bg-slate-900 p-8 rounded-[3rem] text-white shadow-xl">
+        <h2 className="text-2xl font-black mb-2 tracking-tighter italic">1. Mapa de Zonas Rojas</h2>
         <p className="text-slate-400 text-xs italic leading-relaxed">
           "Al identificar tus detonantes comunes y estar atento a tu energía, sabrás cuándo vas a gritar incluso minutos antes de que ocurra."
         </p>
       </div>
 
       <div className="bg-white p-8 rounded-[2.5rem] border space-y-6 shadow-sm">
-        <div>
-           <p className="font-black text-xs uppercase text-slate-400 mb-4 tracking-widest">¿Qué te sobrecarga hoy? (Elige 3)</p>
-           <div className="flex flex-wrap gap-2">
-             {common.map(t => (
-               <button key={t} onClick={() => toggle(t)} className={`px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all ${triggers.includes(t) ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>
-                 {t}
-               </button>
-             ))}
-           </div>
+        <p className="font-black text-xs uppercase text-slate-400 tracking-widest">¿Qué te sobrecarga hoy? (Elige 3)</p>
+        <div className="flex flex-wrap gap-2">
+          {common.map(t => (
+            <button key={t} onClick={() => toggle(t)} className={`px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all ${triggers.includes(t) ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-slate-100 text-slate-400'}`}>
+              {t}
+            </button>
+          ))}
         </div>
         <div className="flex gap-2">
-          <input value={custom} onChange={e => setCustom(e.target.value)} placeholder="Otro detonante..." className="flex-1 p-4 bg-slate-50 rounded-xl text-sm outline-none border border-transparent focus:border-orange-200 transition-all" />
-          <button onClick={() => { if(custom){setTriggers([...triggers, custom]); setCustom('');} }} className="p-4 bg-slate-900 text-white rounded-xl active:scale-95 transition-transform"><Plus size={20}/></button>
+          <input value={custom} onChange={e => setCustom(e.target.value)} placeholder="Agrega otro..." className="flex-1 p-4 bg-slate-50 rounded-xl text-sm outline-none" />
+          <button onClick={() => { if(custom){setTriggers([...triggers, custom]); setCustom('');} }} className="p-4 bg-slate-900 text-white rounded-xl active:scale-95"><Plus size={20}/></button>
         </div>
       </div>
 
-      <div className={`p-10 rounded-[3rem] border-2 transition-all shadow-sm ${level > 7 ? 'bg-red-50 border-red-200' : 'bg-white border-slate-100'}`}>
-        <p className="font-black text-xs uppercase text-slate-400 text-center mb-6 tracking-widest italic">Nivel de tu Tanque de Paciencia</p>
+      <div className={`p-10 rounded-[3rem] border-2 shadow-sm transition-all ${level > 7 ? 'bg-red-50 border-red-200' : 'bg-white border-slate-100'}`}>
+        <p className="font-black text-xs uppercase text-slate-400 text-center mb-6 tracking-widest italic">Nivel del Tanque de Paciencia</p>
         <input type="range" min="1" max="10" value={level} onChange={e => setLevel(parseInt(e.target.value))} className="w-full h-3 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-orange-600" />
         <div className="text-7xl font-black text-center text-slate-900 my-6 tracking-tighter">{level}/10</div>
         {level > 7 && (
-          <div className="bg-red-600 text-white p-4 rounded-2xl flex items-center justify-center gap-2 animate-pulse mb-4">
+          <div className="bg-red-600 text-white p-4 rounded-2xl flex items-center justify-center gap-2 animate-pulse mb-4 shadow-lg shadow-red-100">
             <ShieldAlert size={18} />
-            <p className="text-[10px] font-black uppercase tracking-widest">Peligro inminente: Ve al botón SOS</p>
+            <p className="text-[10px] font-black uppercase tracking-widest">Peligro: Ve al botón SOS de inmediato</p>
           </div>
         )}
         <p className="text-xs text-slate-500 text-center italic leading-relaxed px-4">
