@@ -7,16 +7,17 @@ import {
   createUserWithEmailAndPassword,
   fetchSignInMethodsForEmail 
 } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Home as HomeIcon, LogOut, X, Shield, Activity } from 'lucide-react';
 
-// Importación de Páginas (Asegúrate de que existan en src/pages/)
+// Importación de Páginas
 import Home from './pages/Home';
 import Mapa from './pages/Mapa';
 import SOS from './pages/SOS';
 import Scripts from './pages/Scripts';
 import Diario from './pages/Diario';
 import Auxilios from './pages/Auxilios';
+// Premium
 import Consecuencias from './pages/Consecuencias';
 import Rutinas from './pages/Rutinas';
 import Escudo from './pages/Escudo';
@@ -37,14 +38,14 @@ export default function App() {
       if (fbUser) {
         setUser(fbUser);
         try {
-          // CONSULTA CORREGIDA: Siempre con user.email después del login
+          // CONSULTA SEGURA: Solo después del login y usando el email del usuario logueado
           const userDocRef = doc(db, "users", fbUser.email.toLowerCase());
           const docSnap = await getDoc(userDocRef);
           if (docSnap.exists()) {
             setUserData(docSnap.data());
           }
         } catch (e) {
-          console.error("Error al cargar datos de Firestore:", e);
+          console.error("Error al cargar datos del usuario:", e);
         }
       } else {
         setUser(null);
@@ -55,12 +56,8 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  if (loading) return (
-    <div className="h-screen flex items-center justify-center font-black italic text-slate-400 animate-pulse uppercase tracking-widest">
-      Abriendo el Manual...
-    </div>
-  );
-
+  if (loading) return <div className="h-screen flex items-center justify-center font-black italic text-slate-400 animate-pulse">ABRIENDO EL MANUAL...</div>;
+  
   if (!user) return <LoginScreen />;
 
   const esAlerta = userData?.patience_level > 7;
@@ -77,7 +74,7 @@ export default function App() {
 
       <main className="p-6 max-w-xl mx-auto">
         {view !== 'home' && (
-          <button onClick={() => setView('home')} className="mb-8 flex items-center text-slate-400 font-black text-xs uppercase hover:text-slate-900">
+          <button onClick={() => setView('home')} className="mb-8 flex items-center text-slate-400 font-black text-xs uppercase hover:text-slate-900 bg-transparent border-none cursor-pointer">
             <X size={16} className="mr-2"/> Cerrar Herramienta
           </button>
         )}
@@ -88,8 +85,6 @@ export default function App() {
         {view === 'scripts' && <Scripts setView={setView} />}
         {view === 'diario' && <Diario userData={userData} setUserData={setUserData} setView={setView} />}
         {view === 'auxilios' && <Auxilios setView={setView} />}
-        
-        {/* Vistas Premium (Axel) */}
         {view === 'consecuencias' && <Consecuencias setView={setView} />}
         {view === 'rutinas' && <Rutinas setView={setView} />}
         {view === 'escudo' && <Escudo setView={setView} />}
@@ -111,63 +106,65 @@ const LoginScreen = () => {
   const [step, setStep] = useState('email'); 
   const [isNewUser, setIsNewUser] = useState(false);
 
-  // 1. Lógica corregida según el Dev: fetchSignInMethodsForEmail
+  // PASO 1: Verificar si el email existe en Firebase Auth
   const verifyEmail = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const emailClean = email.trim().toLowerCase();
+    const cleanEmail = email.trim().toLowerCase();
     
     try {
-      // Verificamos métodos de acceso, no Firestore directamente
-      const methods = await fetchSignInMethodsForEmail(auth, emailClean);
+      // Usamos el método sugerido por el desarrollador
+      const methods = await fetchSignInMethodsForEmail(auth, cleanEmail);
       
       if (methods.length === 0) {
-        // Email NUEVO o no registrado en Auth
+        // Email no registrado en Auth → Es un usuario nuevo que debe activar
         setIsNewUser(true);
       } else {
-        // Email ya existe en Firebase Auth
+        // Email ya tiene contraseña → Usuario existente
         setIsNewUser(false);
       }
       setStep('password');
     } catch (err) {
+      setError('Error al verificar el correo. Intenta de nuevo.');
       console.error(err);
-      setError('Error al verificar el correo. Inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
   };
 
-  // 2. Lógica de autenticación respetando el estado de isNewUser
+  // PASO 2: Login o Registro
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const emailClean = email.trim().toLowerCase();
+    const cleanEmail = email.trim().toLowerCase();
 
     try {
       if (isNewUser) {
-        // CREAR CUENTA
+        // REGISTRO (Primer ingreso)
         if (password.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
-        const cred = await createUserWithEmailAndPassword(auth, emailClean, password);
         
-        // Vincular en Firestore tras el registro exitoso
-        await updateDoc(doc(db, "users", emailClean), { 
-          uid: cred.user.uid, 
-          authLinked: true 
-        });
+        await createUserWithEmailAndPassword(auth, cleanEmail, password);
+        
+        // Creamos el documento inicial en Firestore (ahora que ya estamos logueados)
+        const userDocRef = doc(db, "users", cleanEmail);
+        await setDoc(userDocRef, { 
+          email: cleanEmail,
+          authLinked: true,
+          status: 'comprador_normal',
+          createdAt: new Date().toISOString()
+        }, { merge: true });
+
       } else {
-        // LOGIN NORMAL
-        await signInWithEmailAndPassword(auth, emailClean, password);
+        // LOGIN (Usuario ya existente)
+        await signInWithEmailAndPassword(auth, cleanEmail, password);
       }
     } catch (err) {
-      console.error(err);
-      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+      if (err.code === 'auth/wrong-password') {
         setError('Contraseña incorrecta.');
-      } else if (err.code === 'auth/email-already-in-use') {
-        setError('Este correo ya está registrado. Intenta iniciar sesión.');
       } else {
-        setError(err.message || 'Ocurrió un error al ingresar.');
+        setError(err.message);
       }
     } finally {
       setLoading(false);
@@ -191,10 +188,11 @@ const LoginScreen = () => {
                 placeholder="ejemplo@correo.com" 
                 className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500 transition-all" 
                 required 
+                value={email}
                 onChange={e => setEmail(e.target.value)} 
               />
             </div>
-            <button type="submit" className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-widest" disabled={loading}>
+            <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-widest disabled:opacity-50" disabled={loading}>
               {loading ? 'Verificando...' : 'Continuar'}
             </button>
           </form>
@@ -202,20 +200,25 @@ const LoginScreen = () => {
           <form onSubmit={handleAuth} className="space-y-6">
             <div className="space-y-2">
                <label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">
-                 {isNewUser ? 'Crea tu Contraseña (mín. 6 caracteres)' : 'Ingresa tu Contraseña'}
+                 {isNewUser ? 'Crea tu nueva contraseña (mín. 6 caracteres)' : 'Ingresa tu contraseña'}
                </label>
                <input 
                 type="password" 
                 required 
                 className="w-full p-4 rounded-xl border text-sm outline-none focus:border-orange-500 transition-all" 
+                value={password}
                 onChange={e => setPassword(e.target.value)} 
                />
             </div>
-            <button type="submit" className="w-full py-4 bg-orange-600 text-white rounded-xl font-bold uppercase tracking-widest disabled:opacity-50" disabled={loading}>
-              {isNewUser ? 'Activar Acceso' : 'Ingresar'}
+            <button type="submit" className="w-full py-5 bg-orange-600 text-white rounded-xl font-bold uppercase tracking-widest disabled:opacity-50" disabled={loading}>
+              {isNewUser ? 'Activar Acceso' : 'Ingresar al Manual'}
             </button>
-            <button onClick={() => setStep('email')} className="w-full text-center text-xs font-bold text-slate-400 mt-4 uppercase tracking-widest">
-              ← Cambiar Email
+            <button 
+              type="button"
+              onClick={() => setStep('email')} 
+              className="w-full text-center text-xs font-bold text-slate-400 uppercase tracking-widest bg-transparent border-none cursor-pointer"
+            >
+              ← Volver
             </button>
           </form>
         )}
